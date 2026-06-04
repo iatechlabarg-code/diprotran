@@ -1,0 +1,25 @@
+{
+  "name": "DI.PRO.TRAN. – Sistema de Guardia",
+  "short_name": "DIPROTRAN",
+  "description": "Sistema de guardia para la Dirección Provincial de Transporte",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#003580",
+  "theme_color": "#003580",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "logo_fondo_blanco.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo_fondo_blanco.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
