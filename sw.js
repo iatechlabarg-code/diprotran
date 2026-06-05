@@ -1,61 +1,105 @@
-// Service Worker — DI.PRO.TRAN. Sistema de Guardia
-// Cache-first para el shell de la app; network-first para Supabase API
+// Service Worker â DI.PRO.TRAN. Sistema de Guardia  v1.2
+// Estrategia: Cache-first para shell local; Network-first para APIs externas.
+// ActualizaciÃ³n: skipWaiting inmediato + notificaciÃ³n a clientes.
 
-const CACHE_NAME = "diprotran-v1";
+const CACHE_NAME = 'diprotran-v1.2';
+
 const SHELL = [
-  "./index.html",
-  "./logo_fondo_blanco.png",
-  "./manifest.json",
+  './index.html',
+  './assets/img/logo.png',
+  './manifest.json',
+  './assets/css/app.v1.2.css',
+  './assets/js/app.v1.2.js',
 ];
 
-// ── Install: pre-cachear el shell ────────────────────────────────────────────
-self.addEventListener("install", event => {
+// ââ Install: pre-cachear el shell ââââââââââââââââââââââââââââââââââââââââââ
+self.addEventListener('install', function(event) {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL))
+    caches.open(CACHE_NAME)
+      .then(function(cache) { return cache.addAll(SHELL); })
+      .then(function() { return self.skipWaiting(); })
   );
-  self.skipWaiting();
 });
 
-// ── Activate: limpiar caches viejos ─────────────────────────────────────────
-self.addEventListener("activate", event => {
+// ââ Activate: limpiar caches viejos y notificar clientes ââââââââââââââââââ
+self.addEventListener('activate', function(event) {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      )
-    )
+    caches.keys()
+      .then(function(keys) {
+        return Promise.all(
+          keys
+            .filter(function(k) { return k !== CACHE_NAME; })
+            .map(function(k) { return caches.delete(k); })
+        );
+      })
+      .then(function() {
+        // Notificar a todos los clientes abiertos que hay nueva versiÃ³n
+        return self.clients.matchAll({ type: 'window' });
+      })
+      .then(function(clients) {
+        clients.forEach(function(client) {
+          client.postMessage({ type: 'SW_UPDATED', version: CACHE_NAME });
+        });
+        return self.clients.claim();
+      })
   );
-  self.clients.claim();
 });
 
-// ── Fetch: estrategia mixta ──────────────────────────────────────────────────
-self.addEventListener("fetch", event => {
-  const url = new URL(event.request.url);
+// ââ Fetch: estrategia mixta ââââââââââââââââââââââââââââââââââââââââââââââââ
+self.addEventListener('fetch', function(event) {
+  // Solo interceptar GET
+  if (event.request.method !== 'GET') return;
 
-  // Supabase y CDN externos → network-first (sin caché)
+  var url;
+  try { url = new URL(event.request.url); }
+  catch (_) { return; }
+
+  // APIs externas â network-first (sin cachÃ©)
   if (
-    url.hostname.includes("supabase.co") ||
-    url.hostname.includes("cdnjs.cloudflare.com") ||
-    url.hostname.includes("cdn.jsdelivr.net") ||
-    url.hostname.includes("fonts.googleapis.com") ||
-    url.hostname.includes("fonts.gstatic.com")
+    url.hostname.includes('supabase.co')           ||
+    url.hostname.includes('cdnjs.cloudflare.com')  ||
+    url.hostname.includes('cdn.jsdelivr.net')       ||
+    url.hostname.includes('fonts.googleapis.com')  ||
+    url.hostname.includes('fonts.gstatic.com')
   ) {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    event.respondWith(
+      fetch(event.request).catch(function() {
+        return caches.match(event.request);
+      })
+    );
     return;
   }
 
-  // Shell local → cache-first con fallback a red
+  // Shell local â cache-first con fallback a red
   event.respondWith(
-    caches.match(event.request).then(cached => {
+    caches.match(event.request).then(function(cached) {
       if (cached) return cached;
-      return fetch(event.request).then(response => {
-        // Cachear solo respuestas válidas del mismo origen
-        if (response && response.status === 200 && url.origin === location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+
+      return fetch(event.request).then(function(response) {
+        if (
+          response &&
+          response.status === 200 &&
+          url.origin === location.origin
+        ) {
+          var clone = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) {
+            cache.put(event.request, clone);
+          });
         }
         return response;
+      }).catch(function() {
+        // Offline fallback: devolver index.html para navegaciÃ³n
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
       });
     })
   );
+});
+
+// ââ Mensajes desde la app ââââââââââââââââââââââââââââââââââââââââââââââââââ
+self.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
