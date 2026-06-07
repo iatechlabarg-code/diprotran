@@ -766,6 +766,34 @@ function saveEfectivo() {
     }
   }
 
+  // ── Sincronizar función con encabezado del informe ──────────────────────────
+  // Si se asigna of_servicio o ayudante, actualizar state.oficial / state.ayudante
+  // en tiempo real para que el informe refleje siempre quién está cubriendo el rol.
+  const labelDot   = `${ef.jerarquia}. ${ef.nombre}`; // formato inpOficial
+  const labelPlain = `${ef.jerarquia} ${ef.nombre}`;  // formato inpAyudante
+
+  if (func === "of_servicio") {
+    state.oficial = labelDot;
+    if (typeof poblarSelectOficial === "function") poblarSelectOficial();
+    const selOf = document.getElementById("inpOficial");
+    if (selOf) selOf.value = state.oficial;
+  } else if (state.oficial === labelDot) {
+    // Este efectivo ERA el oficial pero le cambiaron la función
+    state.oficial = "";
+    if (typeof aplicarDefaultsGuardia === "function") aplicarDefaultsGuardia();
+  }
+
+  if (func === "ayudante") {
+    state.ayudante = labelPlain;
+    if (typeof poblarSelectAyudante === "function") poblarSelectAyudante();
+    const selAy = document.getElementById("inpAyudante");
+    if (selAy) selAy.value = state.ayudante;
+  } else if (state.ayudante === labelPlain) {
+    // Este efectivo ERA el ayudante pero le cambiaron la función
+    state.ayudante = "";
+    if (typeof aplicarDefaultsGuardia === "function") aplicarDefaultsGuardia();
+  }
+
   saveStorage();     // guarda estado del turno (incluye llamada a saveVacaciones)
   if (typeof saveVacaciones === "function") saveVacaciones(); // doble seguro: persiste dpt_vac
   closeEfModal();
