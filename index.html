@@ -102,7 +102,7 @@
     <input type="date" id="inpFecha">
 
     <label class="lbl">Oficial de Servicio</label>
-    <select id="inpOficial">
+    <select id="inpOficial" onchange="state.oficial=this.value;saveStorage()">
       <option value="">— Seleccionar —</option>
     </select>
 
@@ -1503,33 +1503,51 @@ function poblarSelectAyudante() {
 }
 
 // ── Auto-completar titulares fijos cuando el state no tiene valor ────────────
-// Se llama después de cargar PERSONAL_BASE desde Supabase.
-// Solo actúa si el campo está vacío (no pisa una elección manual del día).
+// Lógica:
+//  1. Si el titular (Villalba / Cabral) está presente (sin función de ausencia), usarlo.
+//  2. Si el titular está ausente, buscar quién tiene of_servicio / ayudante en state.personal.
+//  3. Si nadie tiene el rol asignado explícitamente, dejar vacío para que el usuario elija.
+// Solo actúa si el campo está vacío (no pisa una elección manual ya guardada).
+const _AUSENTES_SET = new Set(["vacaciones","licencia","lic_especial","baja_med","desafect","inactividad","franco","disponib","act_limit"]);
+
+function _efEstaAusente(efId) {
+  const func = state.personal[efId]?.funcion;
+  return func && _AUSENTES_SET.has(func);
+}
+
 function aplicarDefaultsGuardia() {
   const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
 
   if (!state.oficial) {
-    const ef = todos.find(e =>
-      e.nombre.toUpperCase().includes(DEFAULT_OFICIAL_NOMBRE.split(" ")[0]) &&
-      e.nombre.toUpperCase().includes(DEFAULT_OFICIAL_NOMBRE.split(" ")[1] || "")
-    );
-    if (ef) {
-      state.oficial = `${ef.jerarquia}. ${ef.nombre}`;
-      const sel = document.getElementById("inpOficial");
-      if (sel) sel.value = state.oficial;
+    // Buscar el titular por nombre
+    const palabrasOf = DEFAULT_OFICIAL_NOMBRE.toUpperCase().split(" ");
+    const titularOf  = todos.find(e => palabrasOf.every(p => e.nombre.toUpperCase().includes(p)));
+
+    if (titularOf && !_efEstaAusente(titularOf.id)) {
+      // Titular disponible → usarlo
+      state.oficial = `${titularOf.jerarquia}. ${titularOf.nombre}`;
+    } else {
+      // Titular ausente o no encontrado → buscar quién tiene of_servicio asignado hoy
+      const suplente = todos.find(e => state.personal[e.id]?.funcion === "of_servicio");
+      if (suplente) state.oficial = `${suplente.jerarquia}. ${suplente.nombre}`;
+      // Si nadie tiene el rol, dejar vacío — el usuario deberá elegir
     }
+    const selOf = document.getElementById("inpOficial");
+    if (selOf && state.oficial) selOf.value = state.oficial;
   }
 
   if (!state.ayudante) {
-    const partes = DEFAULT_AYUDANTE_NOMBRE.split(" ");
-    const ef = todos.find(e =>
-      partes.every(p => e.nombre.toUpperCase().includes(p))
-    );
-    if (ef) {
-      state.ayudante = `${ef.jerarquia} ${ef.nombre}`;
-      const sel = document.getElementById("inpAyudante");
-      if (sel) sel.value = state.ayudante;
+    const palabrasAy = DEFAULT_AYUDANTE_NOMBRE.toUpperCase().split(" ");
+    const titularAy  = todos.find(e => palabrasAy.every(p => e.nombre.toUpperCase().includes(p)));
+
+    if (titularAy && !_efEstaAusente(titularAy.id)) {
+      state.ayudante = `${titularAy.jerarquia} ${titularAy.nombre}`;
+    } else {
+      const suplente = todos.find(e => state.personal[e.id]?.funcion === "ayudante");
+      if (suplente) state.ayudante = `${suplente.jerarquia} ${suplente.nombre}`;
     }
+    const selAy = document.getElementById("inpAyudante");
+    if (selAy && state.ayudante) selAy.value = state.ayudante;
   }
 }
 
