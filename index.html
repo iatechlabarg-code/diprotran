@@ -641,6 +641,11 @@ function scheduleAutoSave() {
 
 const VAC_KEY = "dpt_vac"; // clave independiente del turno — vacaciones persisten entre días
 
+// ── Titulares fijos del turno (se auto-completan al iniciar el día) ──────────
+// Cambiar aquí si rotan los titulares permanentes.
+const DEFAULT_OFICIAL_NOMBRE  = "VILLALBA LUCAS";      // Oficial de Servicio titular
+const DEFAULT_AYUDANTE_NOMBRE = "CABRAL BLANCO CRISTIAN"; // Ayudante de Guardia titular
+
 // → Ver js/offline.js (COLA_KEY, FOTO_COLA_KEY, procesarColaOffline, procesarColaFotos, ...)
 async function guardarEnNube() {
   if (!supaClient) { showToast("⚠️ Sin conexión a la nube"); return; }
@@ -1404,6 +1409,7 @@ async function initApp() {
   }
   poblarSelectOficial();
   poblarSelectAyudante();
+  aplicarDefaultsGuardia(); // auto-completar Villalba / Cabral si están vacíos
 
   // ── Restaurar vacaciones vigentes desde perfiles de Supabase ──────────────
   // state.personal arranca vacío cada día, pero los perfiles de PERSONAL_BASE
@@ -1496,6 +1502,36 @@ function poblarSelectAyudante() {
   }
 }
 
+// ── Auto-completar titulares fijos cuando el state no tiene valor ────────────
+// Se llama después de cargar PERSONAL_BASE desde Supabase.
+// Solo actúa si el campo está vacío (no pisa una elección manual del día).
+function aplicarDefaultsGuardia() {
+  const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
+
+  if (!state.oficial) {
+    const ef = todos.find(e =>
+      e.nombre.toUpperCase().includes(DEFAULT_OFICIAL_NOMBRE.split(" ")[0]) &&
+      e.nombre.toUpperCase().includes(DEFAULT_OFICIAL_NOMBRE.split(" ")[1] || "")
+    );
+    if (ef) {
+      state.oficial = `${ef.jerarquia}. ${ef.nombre}`;
+      const sel = document.getElementById("inpOficial");
+      if (sel) sel.value = state.oficial;
+    }
+  }
+
+  if (!state.ayudante) {
+    const partes = DEFAULT_AYUDANTE_NOMBRE.split(" ");
+    const ef = todos.find(e =>
+      partes.every(p => e.nombre.toUpperCase().includes(p))
+    );
+    if (ef) {
+      state.ayudante = `${ef.jerarquia} ${ef.nombre}`;
+      const sel = document.getElementById("inpAyudante");
+      if (sel) sel.value = state.ayudante;
+    }
+  }
+}
 
 // ── Oficial de Servicio: desplegable dinámico ────────────────
 function poblarSelectOficial() {
@@ -1505,11 +1541,9 @@ function poblarSelectOficial() {
   // Mantener solo el placeholder
   while (sel.options.length > 1) sel.remove(1);
 
-  // Agregar todos los efectivos que pueden ser Oficial de Servicio
-  // (funcion_base: of_servicio o enc_tercio — quienes pueden ascender)
+  // Mostrar TODO el personal — cualquiera puede cubrir el rol ante una ausencia
   const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
   todos.forEach(ef => {
-    if (!["of_servicio","enc_tercio"].includes(ef.funcion_base)) return;
     const opt = document.createElement("option");
     opt.value = `${ef.jerarquia}. ${ef.nombre}`;
     opt.textContent = `${ef.jerarquia}. ${ef.nombre}`;
@@ -1517,7 +1551,7 @@ function poblarSelectOficial() {
     sel.appendChild(opt);
   });
 
-  // Si el valor guardado no está en la lista, agregarlo igual
+  // Si el valor guardado no está en la lista (ej: efectivo dado de baja), agregarlo igual
   if (state.oficial) {
     const existe = [...sel.options].some(o => o.value === state.oficial);
     if (!existe) {
