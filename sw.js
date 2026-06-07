@@ -1,18 +1,20 @@
 // Service Worker — DI.PRO.TRAN. Sistema de Guardia
-// Cache-first para el shell de la app; network-first para Supabase API
+// Network-first para app files (siempre sirve lo último cuando hay red)
+// Cache-first solo para assets estáticos que no cambian (logo, manifest)
 // ── Cambiar APP_VERSION con cada deploy para forzar actualización ──
-const APP_VERSION  = "20260607-3";
+const APP_VERSION  = "20260607-5";
 const CACHE_NAME   = "diprotran-" + APP_VERSION;
-const SHELL = [
-  "./index.html",
+
+// Assets verdaderamente estáticos — cache-first está bien
+const STATIC_ASSETS = [
   "./logo_fondo_blanco.png",
   "./manifest.json",
 ];
 
-// ── Install: pre-cachear el shell ────────────────────────────────────────────
+// ── Install: pre-cachear solo los assets estáticos ──────────────────────────
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
@@ -38,7 +40,7 @@ self.addEventListener("message", event => {
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
 
-  // Supabase y CDN externos → network-first (sin caché)
+  // Supabase y CDN externos → network-first sin caché
   if (
     url.hostname.includes("supabase.co") ||
     url.hostname.includes("cdnjs.cloudflare.com") ||
@@ -50,18 +52,25 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Shell local → cache-first con fallback a red
+  // Assets estáticos (logo, manifest) → cache-first
+  const path = url.pathname;
+  if (path.endsWith(".png") || path.endsWith("manifest.json")) {
+    event.respondWith(
+      caches.match(event.request).then(cached => cached || fetch(event.request))
+    );
+    return;
+  }
+
+  // App files (index.html, style.css, js/*.js, sw.js) → network-first
+  // Cuando hay red: siempre sirve la versión más nueva y actualiza el cache
+  // Cuando no hay red: sirve el cache como fallback offline
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        // Cachear solo respuestas válidas del mismo origen
-        if (response && response.status === 200 && url.origin === location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      });
-    })
+    fetch(event.request).then(response => {
+      if (response && response.status === 200 && url.origin === location.origin) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });
