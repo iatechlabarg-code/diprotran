@@ -634,6 +634,9 @@ function togglePerfil(efId) {
   if (toggle) toggle.textContent = isOpen ? "▾ Ocultar perfil" : "▸ Ver perfil completo";
 }
 
+const _FUNC_OP    = ["of_servicio","ayudante","enc_tercio","chofer"];
+const _FUNC_OP_ICONS = { of_servicio:"🎖️", ayudante:"👮", enc_tercio:"⭐", chofer:"🚗" };
+
 function openEfModal(efId) {
   currentEfId = efId;
   const ef      = PERSONAL_BASE.find(p=>p.id===efId);
@@ -651,22 +654,44 @@ function openEfModal(efId) {
       Leg. ${escapeHTML(ef.legajo)}${ef.cel&&ef.cel!=='—'?' &nbsp;·&nbsp; 📱 '+escapeHTML(ef.cel):''}
     </div>`;
 
+  const funcsOp    = FUNCIONES.filter(f =>  _FUNC_OP.includes(f.id));
+  const funcsExtra = FUNCIONES.filter(f => !_FUNC_OP.includes(f.id));
+  const esExtra    = !_FUNC_OP.includes(func);
+  const extraLabel = esExtra ? (FUNCIONES.find(f=>f.id===func)?.label || "") : "";
+
   document.getElementById("efBody").innerHTML = headerHtml + `
-      <label class="lbl">Función del día</label>
-      <div class="funcion-grid">
-        ${FUNCIONES.map(f => `
+    <label class="lbl">Función del día</label>
+    <div class="funcion-grid funcion-op">
+      ${funcsOp.map(f => `
+        <button class="fbtn${func===f.id?" active-"+f.id:""}" onclick="setFuncion(this,'${f.id}')">
+          <span class="fbtn-icon">${_FUNC_OP_ICONS[f.id]||""}</span>${f.label}
+        </button>
+      `).join("")}
+    </div>
+
+    <div class="funcion-extra-toggle" id="situacionToggle" onclick="toggleSituacionExtra()">
+      ${esExtra
+        ? `<span style="opacity:.7">▾</span> Otra situación &nbsp;<span class="funcion-extra-badge">${extraLabel}</span>`
+        : `<span style="opacity:.5">▸</span> Otra situación <span style="opacity:.45;font-weight:400;text-transform:none;font-size:10px">franco · licencia · baja med. · más…</span>`
+      }
+    </div>
+    <div class="funcion-situacion-wrap" id="situacionWrap" style="display:${esExtra ? 'block' : 'none'}">
+      <div class="funcion-grid" style="margin-top:8px">
+        ${funcsExtra.map(f => `
           <button class="fbtn${func===f.id?" active-"+f.id:""}" onclick="setFuncion(this,'${f.id}')">${f.label}</button>
         `).join("")}
       </div>
-      <label class="lbl" style="margin-top:14px">Observaciones</label>
-      <textarea id="ef_obs" placeholder="Sin observaciones">${d.obs||""}</textarea>
-      <div class="vac-fecha-wrap" id="vacFechaWrap">
-        <label class="lbl" style="margin-top:0;color:var(--warn)">🌴 Vacaciones hasta</label>
-        <input type="date" id="ef_vacHasta" value="${d.vacHasta||""}">
-        <div style="font-size:11px;color:var(--warn);margin-top:4px">Esta fecha se refleja en el calendario del plantel.</div>
-      </div>`;
+    </div>
+
+    <label class="lbl" style="margin-top:14px">Observaciones</label>
+    <textarea id="ef_obs" placeholder="Sin observaciones">${d.obs||""}</textarea>
+    <div class="vac-fecha-wrap" id="vacFechaWrap">
+      <label class="lbl" style="margin-top:0;color:var(--warn)">🌴 Vacaciones hasta</label>
+      <input type="date" id="ef_vacHasta" value="${d.vacHasta||ef.vacHasta||""}">
+      <div style="font-size:11px;color:var(--warn);margin-top:4px">Esta fecha se refleja en el calendario del plantel.</div>
+    </div>`;
+
   document.getElementById("efModal").classList.add("open");
-  // Mostrar campo fecha si ya tiene vacaciones
   setTimeout(()=>{
     const vacWrap = document.getElementById("vacFechaWrap");
     if (vacWrap) vacWrap.classList.toggle("visible", func==="vacaciones");
@@ -676,11 +701,28 @@ function closeEfModal() {
   document.getElementById("efModal").classList.remove("open");
   currentEfId = null;
 }
+function toggleSituacionExtra() {
+  const wrap   = document.getElementById("situacionWrap");
+  const toggle = document.getElementById("situacionToggle");
+  if (!wrap || !toggle) return;
+  const isOpen = wrap.style.display !== "none";
+  wrap.style.display = isOpen ? "none" : "block";
+  toggle.innerHTML = isOpen
+    ? `<span style="opacity:.5">▸</span> Otra situación <span style="opacity:.45;font-weight:400;text-transform:none;font-size:10px">franco · licencia · baja med. · más…</span>`
+    : `<span style="opacity:.7">▾</span> Otra situación`;
+}
 function setFuncion(btn, funcId) {
-  document.querySelectorAll(".fbtn").forEach(b=>b.className="fbtn");
-  btn.className = "fbtn active-"+funcId;
+  document.querySelectorAll(".fbtn").forEach(b => b.className = "fbtn");
+  btn.className = "fbtn active-" + funcId;
   const vacWrap = document.getElementById("vacFechaWrap");
-  if (vacWrap) vacWrap.classList.toggle("visible", funcId==="vacaciones");
+  if (vacWrap) vacWrap.classList.toggle("visible", funcId === "vacaciones");
+  // Si se selecciona un rol operativo, colapsar el panel de otras situaciones
+  if (_FUNC_OP.includes(funcId)) {
+    const wrap   = document.getElementById("situacionWrap");
+    const toggle = document.getElementById("situacionToggle");
+    if (wrap)   wrap.style.display = "none";
+    if (toggle) toggle.innerHTML = `<span style="opacity:.5">▸</span> Otra situación <span style="opacity:.45;font-weight:400;text-transform:none;font-size:10px">franco · licencia · baja med. · más…</span>`;
+  }
 }
 function saveEfectivo() {
   if (!currentEfId) return;
