@@ -719,11 +719,13 @@ function saveEfectivo() {
     const hoy = new Date().toISOString().split("T")[0];
     if (ef.vacHasta < hoy) {
       ef.vacHasta = "";      // ya venció — limpiar el perfil
+      if (state.vacaciones) delete state.vacaciones[currentEfId]; // quitar de dpt_vac
       sincronizarPersonal();
     }
   }
 
-  saveStorage();
+  saveStorage();     // guarda estado del turno (incluye llamada a saveVacaciones)
+  if (typeof saveVacaciones === "function") saveVacaciones(); // doble seguro: persiste dpt_vac
   closeEfModal();
   renderPersonal(document.getElementById("searchPersonal")?.value || "");
   showToast("✓ " + ef.nombre.split(" ")[0] + " guardado");
