@@ -1022,12 +1022,13 @@ hr.div { border:none; border-top:1px solid var(--border); margin:14px 0; }
       <button class="btn btn-outline" onclick="histTabLoadMore()">Ver más guardias →</button>
     </div>
   </div>
-  <!-- Panel de detalle (overlay fullscreen) -->
-  <div id="histDetail" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;padding-bottom:80px">
-    <div style="padding:14px 13px">
-      <button class="btn btn-outline" onclick="cerrarDetalleHistorial()" style="margin-bottom:14px">← Volver al historial</button>
-      <div id="histDetailContent"></div>
-    </div>
+</div>
+
+<!-- ── HISTORIAL DETALLE (overlay fullscreen — fuera de step7 para evitar herencia display:none) ── -->
+<div id="histDetail" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:250;overflow-y:auto;padding-bottom:80px">
+  <div style="padding:14px 13px">
+    <button class="btn btn-outline" onclick="cerrarDetalleHistorial()" style="margin-bottom:14px">← Volver al historial</button>
+    <div id="histDetailContent"></div>
   </div>
 </div>
 
@@ -2479,6 +2480,7 @@ function goTab(n) {
   // Solo requerir encabezado completo para Móviles (2) y Exportar (3)
   if ((n === 2 || n === 3) && !validateStep1()) return;
   currentTab = n;
+  cerrarDetalleHistorial(); // cerrar overlay de detalle al cambiar de tab
   document.querySelectorAll(".step").forEach((el,i)    => el.classList.toggle("active", i+1===n));
   document.querySelectorAll(".nav-item").forEach((el,i) => el.classList.toggle("active", i+1===n));
   if (n===3) fillPreview();

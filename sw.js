@@ -1,7 +1,7 @@
 // Service Worker — DI.PRO.TRAN. Sistema de Guardia
 // Cache-first para el shell de la app; network-first para Supabase API
 // ── Cambiar APP_VERSION con cada deploy para forzar actualización ──
-const APP_VERSION  = "20260607-1";
+const APP_VERSION  = "20260607-2";
 const CACHE_NAME   = "diprotran-" + APP_VERSION;
 const SHELL = [
   "./index.html",
