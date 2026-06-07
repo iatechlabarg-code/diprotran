@@ -45,24 +45,8 @@
 }
 
 /* ── MODO OSCURO ─────────────────────────────────────────── */
-[data-theme="dark"] {
-  --white:   #1e2635;
-  --off:     #141a24;
-  --offb:    #192030;
-  --text:    #dce4f0;
-  --muted:   #8897b2;
-  --border:  #2b374f;
-  --blue4:   #1b3248;
-  --blue5:   #172840;
-  --ok-bg:   #0b2318;
-  --no-bg:   #2b0e0e;
-  --roto-bg: #2a1505;
-  --na-bg:   #1e2635;
-  --warn-bg: #2a1a05;
-  --shadow:  0 1px 4px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.25);
-}
-[data-theme="dark"] body { background: var(--off); }
-/* dark mode inputs handled by Tailwind */
+/* dark mode CSS eliminado — incompatible con Tailwind literal colors.
+   El toggle de modo oscuro queda reservado para futura migración con dark: prefixes. */
 
 /* ── 2. BASE GLOBAL ──────────────────────────────────────── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
