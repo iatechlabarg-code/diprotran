@@ -1281,6 +1281,15 @@ const FIELDS = {
   no_ident: [],
 };
 
+const FIELD_ICONS = {
+  stereo:"🔊", bateria:"🔋", tapaComb:"⛽", tapaCombUrea:"⛽",
+  matafuego:"🧯", auxilio:"🔧", ac:"❄️", puerta:"🚪",
+  espejos:"🪟", hidraulico:"💧", lona:"🧻", estructura:"🏗️",
+  rejas:"⬜", patente:"🔖", identif:"🏷️", ruedas:"⚙️",
+  dominio:"📋", cadena:"⛓️", luces:"💡", bombaAgua:"🪣",
+  reflector:"🔦", balizas:"🚨"
+};
+
 // ════════════════════════════════════════════
 //  SECCIONES Y VEHÍCULOS
 // ════════════════════════════════════════════
@@ -1956,29 +1965,8 @@ function closeModal() {
   currentKey = null;
 }
 
-function buildFields(type, d) {
-  const fields = FIELDS[type]||[];
-  let html = "";
-  if (fields.length === 0) {
-    html += `<div class="info-box">Este vehículo solo requiere observaciones.</div>`;
-  } else {
-    fields.forEach(f => {
-      const cur = d[f.id]||"";
-      html += `<label class="lbl">${f.label}</label>
-      <div class="status-grid" data-field="${f.id}">
-        ${OPTS.map(opt => {
-          const cls = cur===opt ? `sbtn s-${opt==="N/A"?"na":opt.toLowerCase()}` : "sbtn";
-          return `<button class="${cls}" onclick="setField(this,'${f.id}','${opt}')">${opt}</button>`;
-        }).join("")}
-      </div>`;
-    });
-  }
-  html += `<label class="lbl" style="margin-top:14px">Observaciones</label>
-  <textarea id="f_obs" placeholder="Sin observaciones">${d.obs||""}</textarea>`;
-
-  // ── Sección de foto ──────────────────────────────────────────
-  html += `<label class="lbl" style="margin-top:14px">Foto de daño</label>
-  <div id="fotoWrap">`;
+function buildFotoSection(d) {
+  let html = `<label class="lbl" style="margin-top:14px">Foto de daño</label><div id="fotoWrap">`;
   if (d.fotoUrl) {
     html += `<img src="${escapeHTML(d.fotoUrl)}" class="foto-preview-img">
     <button class="btn btn-danger btn-sm" onclick="eliminarFotoMovil()">🗑 Quitar foto</button>`;
@@ -1988,14 +1976,103 @@ function buildFields(type, d) {
       </div>
       <input type="file" id="fotoInput" accept="image/*" capture="environment" style="display:none" onchange="uploadFotoMovil(this)">`;
   }
-  html += `</div>`;
+  return html + `</div>`;
+}
+
+function buildFields(type, d) {
+  const fields = FIELDS[type]||[];
+
+  if (fields.length === 0) {
+    return `<div class="info-box">Este vehículo solo requiere observaciones.</div>
+    <label class="lbl" style="margin-top:14px">Observaciones</label>
+    <textarea id="f_obs" placeholder="Sin observaciones">${escapeHTML(d.obs||"")}</textarea>
+    ${buildFotoSection(d)}`;
+  }
+
+  // Barra de progreso (campos ya completados)
+  const doneCnt = fields.filter(f => d[f.id] && d[f.id] !== "").length;
+  const pct     = Math.round(doneCnt / fields.length * 100);
+
+  let html = `
+  <div class="v-prog-wrap">
+    <div class="v-prog-track"><div class="v-prog-fill" id="vProgFill" style="width:${pct}%"></div></div>
+    <div class="v-prog-txt" id="vProgTxt">${doneCnt}/${fields.length}</div>
+  </div>
+  <button class="todo-ok-btn" onclick="todoOkMovil()">✓ &nbsp;Todo OK — marcar todo</button>
+  <div class="v-divider-lbl">o revisá ítem por ítem</div>
+  <div class="v-item-grid">`;
+
+  fields.forEach(f => {
+    const cur     = d[f.id]||"";
+    const cardCls = cur ? `s-${cur==="N/A"?"na":cur.toLowerCase()}` : "";
+    const icon    = FIELD_ICONS[f.id]||"";
+    html += `<div class="v-item-card ${cardCls}" id="vc-${f.id}">
+      <div class="v-item-name"><span class="v-item-icon" aria-hidden="true">${icon}</span>${escapeHTML(f.label)}</div>
+      <div class="v-state-grid">
+        ${["OK","NO","Roto","N/A"].map(opt => {
+          const key = opt==="N/A"?"na":opt.toLowerCase();
+          let cls = `v-sbtn v-sbtn-${key}`;
+          if (cur===opt)       cls += " sel";
+          else if (cur && cur!==opt) cls += " dim";
+          return `<button class="${cls}" onclick="setField(this,'${f.id}','${escapeHTML(opt)}')">${opt}</button>`;
+        }).join("")}
+      </div>
+    </div>`;
+  });
+
+  html += `</div>
+  <label class="lbl" style="margin-top:4px">Observaciones</label>
+  <textarea id="f_obs" placeholder="Sin observaciones">${escapeHTML(d.obs||"")}</textarea>
+  ${buildFotoSection(d)}`;
 
   return html;
 }
 
 function setField(btn, fieldId, val) {
-  btn.closest(".status-grid").querySelectorAll(".sbtn").forEach(b=>b.className="sbtn");
-  btn.className = "sbtn s-"+(val==="N/A"?"na":val.toLowerCase());
+  const card = document.getElementById("vc-"+fieldId);
+  if (card) {
+    // Nueva UI: actualizar botones y color de tarjeta
+    card.querySelectorAll(".v-sbtn").forEach(b => {
+      b.classList.remove("sel","dim");
+      if (b.textContent.trim()===val) b.classList.add("sel");
+      else b.classList.add("dim");
+    });
+    const key = val==="N/A"?"na":val.toLowerCase();
+    card.className = `v-item-card s-${key}`;
+  } else {
+    // Fallback UI antigua (por compatibilidad)
+    btn.closest(".status-grid")?.querySelectorAll(".sbtn").forEach(b=>b.className="sbtn");
+    btn.className = "sbtn s-"+(val==="N/A"?"na":val.toLowerCase());
+  }
+  updateVProgBar();
+}
+
+function todoOkMovil() {
+  if (!currentKey) return;
+  const sec    = SECTIONS.find(s=>currentKey.startsWith(s.id+"_"));
+  const fields = FIELDS[sec?.type]||[];
+  fields.forEach(f => {
+    const card = document.getElementById("vc-"+f.id);
+    if (!card) return;
+    card.className = "v-item-card s-ok";
+    card.querySelectorAll(".v-sbtn").forEach(b => {
+      b.classList.remove("sel","dim");
+      if (b.textContent.trim()==="OK") b.classList.add("sel");
+      else b.classList.add("dim");
+    });
+  });
+  updateVProgBar();
+}
+
+function updateVProgBar() {
+  if (!currentKey) return;
+  const sec    = SECTIONS.find(s=>currentKey.startsWith(s.id+"_"));
+  const fields = FIELDS[sec?.type]||[];
+  const done   = fields.filter(f => document.getElementById("vc-"+f.id)?.querySelector(".v-sbtn.sel")).length;
+  const fill   = document.getElementById("vProgFill");
+  const txt    = document.getElementById("vProgTxt");
+  if (fill) fill.style.width = fields.length ? Math.round(done/fields.length*100)+"%" : "0%";
+  if (txt)  txt.textContent  = `${done}/${fields.length}`;
 }
 
 function saveVehicle() {
@@ -2006,9 +2083,17 @@ function saveVehicle() {
   // Preservar foto si existe en el estado actual
   if (state.vehicles[currentKey]?.fotoUrl) d.fotoUrl = state.vehicles[currentKey].fotoUrl;
   fields.forEach(f => {
-    const grid   = document.querySelector(`[data-field="${f.id}"]`);
-    const active = grid?.querySelector(".sbtn.s-ok,.sbtn.s-no,.sbtn.s-roto,.sbtn.s-na");
-    d[f.id] = active ? active.textContent.trim() : "";
+    // Nueva UI: leer del v-item-card
+    const card   = document.getElementById("vc-"+f.id);
+    const active = card?.querySelector(".v-sbtn.sel");
+    if (active) {
+      d[f.id] = active.textContent.trim();
+    } else {
+      // Fallback UI antigua
+      const grid    = document.querySelector(`[data-field="${f.id}"]`);
+      const oldAct  = grid?.querySelector(".sbtn.s-ok,.sbtn.s-no,.sbtn.s-roto,.sbtn.s-na");
+      d[f.id] = oldAct ? oldAct.textContent.trim() : "";
+    }
   });
   d.obs = document.getElementById("f_obs")?.value.trim()||"";
   d._updatedDate  = state.fecha || new Date().toISOString().split("T")[0];
