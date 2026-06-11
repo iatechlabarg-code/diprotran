@@ -951,21 +951,9 @@ window.addEventListener("load", () => {
   // Escuchar cambios de sesión de Supabase Auth
   supaClient.auth.onAuthStateChange(async (event, session) => {
     if (session) {
-      // Leer email del usuario autenticado
+      // Leer rol y email del usuario autenticado
       currentUserEmail = session.user.email || "";
-
-      // Leer rol desde la tabla public.roles (SECURITY DEFINER — fuente de verdad para RLS)
-      // Fallback a user_metadata para compatibilidad mientras se migra
-      try {
-        const { data: rolData } = await supaClient
-          .from("roles")
-          .select("rol")
-          .eq("user_id", session.user.id)
-          .single();
-        currentUserRol = rolData?.rol || session.user.user_metadata?.rol || "oficial";
-      } catch(_) {
-        currentUserRol = session.user.user_metadata?.rol || "oficial";
-      }
+      currentUserRol   = session.user.user_metadata?.rol || "oficial";
       aplicarRestriccionesRol();
 
       // Usuario autenticado: ocultar login y lanzar la app (solo una vez)
