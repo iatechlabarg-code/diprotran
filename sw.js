@@ -2,12 +2,14 @@
 // Network-first para app files (siempre sirve lo último cuando hay red)
 // Cache-first solo para assets estáticos que no cambian (logo, manifest)
 // ── Cambiar APP_VERSION con cada deploy para forzar actualización ──
-const APP_VERSION  = "20260611-08";
+const APP_VERSION  = "20260611-09";
 const CACHE_NAME   = "diprotran-" + APP_VERSION;
 
 // Assets verdaderamente estáticos — cache-first está bien
 const STATIC_ASSETS = [
   "./logo_fondo_blanco.png",
+  "./icon-192.png",
+  "./icon-512.png",
   "./manifest.json",
 ];
 

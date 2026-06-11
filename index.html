@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DIPROTRAN">
-<link rel="apple-touch-icon" href="logo_fondo_blanco.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <!-- Manual de Marca Buenos Aires: Encode Sans (principal) + Roboto (secundaria) -->
 <link href="https://fonts.googleapis.com/css2?family=Encode+Sans:wght@400;500;600;700;800;900&family=Encode+Sans+Condensed:wght@400;600;700;900&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -60,8 +60,13 @@ tailwind.config = {
     </div>
     <div class="login-field mb-4">
       <label for="loginPass" class="block text-xs font-bold text-pba-grey uppercase tracking-wider mb-1.5 font-strong">Contraseña</label>
-      <input type="password" id="loginPass" placeholder="Ingresá tu contraseña"
-        autocomplete="current-password" class="block w-full">
+      <div style="position:relative">
+        <input type="password" id="loginPass" placeholder="Ingresá tu contraseña"
+          autocomplete="current-password" class="block w-full" style="padding-right:44px">
+        <button type="button" onclick="togglePassVis()" id="btnTogglePass"
+          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:#838383;padding:2px;line-height:1"
+          aria-label="Mostrar u ocultar contraseña">👁</button>
+      </div>
     </div>
     <button class="btn btn-gold" onclick="doLogin()" style="margin-bottom:0">
       Ingresar →
@@ -88,7 +93,7 @@ tailwind.config = {
 </header>
 
 <div class="nube-bar bg-white border-b border-gray-200 px-3.5 py-2 flex items-center justify-between gap-2 text-xs" id="nubeBar">
-  <div class="nube-status flex items-center gap-1.5 text-pba-grey font-semibold font-strong">
+  <div id="nubeStatus" class="nube-status flex items-center gap-1.5 text-pba-grey font-semibold font-strong">
     <div class="nube-dot offline w-2 h-2 rounded-full shrink-0" id="nubeDot"></div>
     <span id="nubeStatusTxt">Sin conexión</span>
     <span id="colaBadge" style="display:none;background:#f59e0b;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;font-family:var(--font-display);margin-left:4px" title="Guardados pendientes de sincronizar">⏳ <span id="colaBadgeNum">0</span></span>
@@ -428,26 +433,6 @@ tailwind.config = {
     </div>
     <div class="flota-filters flex gap-1.5 overflow-x-auto px-3.5 py-2 border-b border-gray-200" id="flotaFilters"></div>
     <div id="flotaList"></div>
-  </div>
-</div>
-
-<!-- MODAL: historial de informes en la nube -->
-<div class="modal-bd" id="historialModal" role="dialog" aria-modal="true" aria-label="Historial de Informes">
-  <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
-    <div class="modal-hdr flex justify-between items-center mb-4">
-      <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide">📋 Historial de Informes</span>
-      <button class="modal-x bg-gray-100 border border-gray-200 text-gray-700 rounded-full w-8 h-8 text-lg cursor-pointer flex items-center justify-center" onclick="closeHistorialModal()">✕</button>
-    </div>
-    <div class="info-box bg-pba-teal2 border border-[#a3d8e7] rounded-lg p-3 text-[13px] mb-3 text-pba-blue">
-      Tocá un informe para cargarlo en la app.
-    </div>
-    <input type="text" id="historialSearch" placeholder="🔍 Buscar por fecha, oficial, ayudante..." aria-label="Buscar historial por fecha, oficial o ayudante"
-      style="margin-bottom:10px;font-size:14px;padding:9px 13px"
-      oninput="filtrarHistorial(this.value)">
-    <div id="historialList">
-      <div class="text-center text-pba-grey py-5 text-[13px]">Cargando...</div>
-    </div>
-    <button class="btn btn-outline" onclick="closeHistorialModal()" style="margin-top:8px">Cerrar</button>
   </div>
 </div>
 
