@@ -20,7 +20,8 @@ function renderAdminPersonal(filtro) {
   const list = document.getElementById("adminPersonalList");
   if (!list) return;
   const q = (filtro||"").toLowerCase().trim();
-  const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])].filter(ef =>
+  // Los extras ya están en PERSONAL_BASE (se pushean al crearlos) — no concatenar para evitar duplicados
+  const todos = [...PERSONAL_BASE].filter(ef =>
     !q ||
     ef.nombre.toLowerCase().includes(q) ||
     ef.jerarquia.toLowerCase().includes(q) ||
