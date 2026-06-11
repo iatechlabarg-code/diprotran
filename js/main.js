@@ -39,13 +39,17 @@ function setNubeStatus(estado, texto) {
 }
 
 function initSupabase() {
-  if (!window.supabase) { setNubeStatus("error","SDK no disponible"); return; }
+  if (!window.supabase) {
+    setNubeStatus("error","SDK no disponible");
+    console.error("[DI.PRO.TRAN] SDK de Supabase no disponible — verificar que cdn.jsdelivr.net cargó correctamente.");
+    return;
+  }
   try {
     supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     setNubeStatus("online", "Conectado");
   } catch(e) {
     setNubeStatus("error", "Error de conexión");
-    dbgW("Supabase error:", e);
+    console.error("[DI.PRO.TRAN] Error al crear Supabase client:", e);
   }
 }
 
@@ -875,7 +879,7 @@ async function initApp() {
     const withTimeout6 = p => Promise.race([p, new Promise((_,rej) => setTimeout(()=>rej(new Error("timeout")),6000))]);
     await withTimeout6(cargarFlotaDesdeNube());
   } catch(e) {
-    dbgW("cargarFlota timeout/error — usando flota local:", e);
+    console.error("[DI.PRO.TRAN] cargarFlota timeout/error:", e?.message || e);
     flotaOffline = true;
   }
 
@@ -898,7 +902,7 @@ async function initApp() {
   try {
     await withTimeout(cargarPersonalDesdeNube(), TIMEOUT_MS);
   } catch(e) {
-    dbgW("cargarPersonal timeout/error:", e);
+    console.error("[DI.PRO.TRAN] cargarPersonal timeout/error:", e?.message || e);
     personalOffline = true;
   }
   poblarSelectOficial();
@@ -942,6 +946,12 @@ async function initApp() {
 
 window.addEventListener("load", () => {
   initSupabase();
+  // Guard: si el SDK no cargó, supaClient es null y llamar .auth crashea silenciosamente
+  if (!supaClient) {
+    console.error("[DI.PRO.TRAN] supaClient es null después de initSupabase() — el SDK de Supabase no cargó correctamente.");
+    // La pantalla de login ya está visible por defecto; el usuario verá el status "SDK no disponible"
+    return;
+  }
   // Escuchar cambios de sesión de Supabase Auth
   supaClient.auth.onAuthStateChange(async (event, session) => {
     if (session) {
