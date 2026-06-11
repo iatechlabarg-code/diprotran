@@ -102,17 +102,11 @@ function scheduleAutoSave() {
 
 const VAC_KEY = "dpt_vac"; // clave independiente del turno — vacaciones persisten entre días
 
-// ── Titulares fijos del turno — derivados de PERSONAL_BASE ───────────────────
-// Los titulares surgen dinámicamente del rol funcion_base en PERSONAL_BASE.
-// Solo usar como fallback si PERSONAL_BASE no está cargado.
-const DEFAULT_OFICIAL_NOMBRE  = (() => {
-  const ef = PERSONAL_BASE.find(p => p.funcion_base === "of_servicio");
-  return ef ? ef.nombre.toUpperCase() : "VILLALBA LUCAS";
-})();
-const DEFAULT_AYUDANTE_NOMBRE = (() => {
-  const ef = PERSONAL_BASE.find(p => p.funcion_base === "ayudante_guardia");
-  return ef ? ef.nombre.toUpperCase() : "CABRAL BLANCO CRISTIAN";
-})();
+// ── Titulares fijos del turno — fallback para aplicarDefaultsGuardia() ───────
+// NOTA: No se puede referenciar PERSONAL_BASE aquí (declarada más abajo).
+// Los valores se derivan de los nombres reales de los titulares habituales.
+const DEFAULT_OFICIAL_NOMBRE  = "VILLALBA LUCAS";
+const DEFAULT_AYUDANTE_NOMBRE = "CABRAL BLANCO CRISTIAN";
 
 // → Ver js/offline.js (COLA_KEY, FOTO_COLA_KEY, procesarColaOffline, procesarColaFotos, ...)
 async function guardarEnNube() {
