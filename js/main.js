@@ -1,6 +1,19 @@
 // ═══════════════════════════════════════
+//  MODO DEBUG — poner true solo en desarrollo
+// ═══════════════════════════════════════
+const DEBUG = false;
+const dbg  = (...a) => { if (DEBUG) console.log(...a); };
+const dbgW = (...a) => { if (DEBUG) console.warn(...a); };
+
+// ═══════════════════════════════════════
 //  SUPABASE — configuración
 // ═══════════════════════════════════════
+// NOTA DE SEGURIDAD — SUPA_KEY (anon key):
+// La "anon key" de Supabase está diseñada para ser pública en apps cliente.
+// NO otorga acceso irrestricto: toda la seguridad real se aplica mediante
+// Row Level Security (RLS) en las tablas de Supabase. Esta key NO debe
+// reemplazarse por la "service_role key", que sí tiene acceso sin restricciones.
+// Referencia: https://supabase.com/docs/guides/api/api-keys
 const SUPA_URL = "https://abmxokahzbxklwyzaiyr.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFibXhva2FoemJ4a2x3eXphaXlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NDczMTQsImV4cCI6MjA5NjAyMzMxNH0.o4qEy0i02dS8P1mTW1Oa8V3JgBnmg9o5vL4E0X-jfK0";
 let supaClient = null;
@@ -26,13 +39,13 @@ function setNubeStatus(estado, texto) {
 }
 
 function initSupabase() {
-  if (!window.supabase) { console.error("Supabase SDK no cargó"); setNubeStatus("error","SDK no disponible"); return; }
+  if (!window.supabase) { setNubeStatus("error","SDK no disponible"); return; }
   try {
     supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     setNubeStatus("online", "Conectado");
   } catch(e) {
     setNubeStatus("error", "Error de conexión");
-    console.error("Supabase error:", e);
+    dbgW("Supabase error:", e);
   }
 }
 
@@ -50,18 +63,22 @@ function buildPayload() {
   };
 }
 
-// ── Auto-guardado en nube (debounce 60 s) ─────────────────────────────────
+// ── Auto-guardado en nube (debounce 30 s) ─────────────────────────────────
+// QA-009: guarda en localStorage siempre; va a nube solo si hay encabezado completo.
+// QA-016: ventana anti-spam reducida de 5 min a 90 s para no perder cambios menores.
 let _autoSaveTimer = null;
 let _lastAutoSave  = 0;
 
 function scheduleAutoSave() {
-  if (!supaClient) return;
   if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(async () => {
-    // Solo si hay datos mínimos y no se guardó recientemente (< 5 min)
-    if (!state.fecha || !state.oficial || !state.ayudante) return;
+    // Siempre persistir en localStorage (aunque falte oficial/ayudante)
+    saveStorage();
+
+    // Solo subir a nube si hay encabezado completo y hay cliente Supabase
+    if (!supaClient || !state.fecha || !state.oficial || !state.ayudante) return;
     const now = Date.now();
-    if (now - _lastAutoSave < 5 * 60 * 1000) return; // evitar spam
+    if (now - _lastAutoSave < 90 * 1000) return; // evitar spam (90 s en lugar de 5 min)
     _lastAutoSave = now;
     setNubeStatus("saving", "Auto-guardando...");
     try {
@@ -78,17 +95,24 @@ function scheduleAutoSave() {
       setTimeout(() => setNubeStatus("online", "Conectado"), 2500);
     } catch(e) {
       setNubeStatus("online", "Conectado"); // no molestar con error silencioso
-      console.warn("Auto-guardado falló:", e);
+      dbgW("Auto-guardado falló:", e);
     }
-  }, 60000); // 60 segundos de inactividad
+  }, 30000); // 30 segundos de inactividad
 }
 
 const VAC_KEY = "dpt_vac"; // clave independiente del turno — vacaciones persisten entre días
 
-// ── Titulares fijos del turno (se auto-completan al iniciar el día) ──────────
-// Cambiar aquí si rotan los titulares permanentes.
-const DEFAULT_OFICIAL_NOMBRE  = "VILLALBA LUCAS";      // Oficial de Servicio titular
-const DEFAULT_AYUDANTE_NOMBRE = "CABRAL BLANCO CRISTIAN"; // Ayudante de Guardia titular
+// ── Titulares fijos del turno — derivados de PERSONAL_BASE ───────────────────
+// Los titulares surgen dinámicamente del rol funcion_base en PERSONAL_BASE.
+// Solo usar como fallback si PERSONAL_BASE no está cargado.
+const DEFAULT_OFICIAL_NOMBRE  = (() => {
+  const ef = PERSONAL_BASE.find(p => p.funcion_base === "of_servicio");
+  return ef ? ef.nombre.toUpperCase() : "VILLALBA LUCAS";
+})();
+const DEFAULT_AYUDANTE_NOMBRE = (() => {
+  const ef = PERSONAL_BASE.find(p => p.funcion_base === "ayudante_guardia");
+  return ef ? ef.nombre.toUpperCase() : "CABRAL BLANCO CRISTIAN";
+})();
 
 // → Ver js/offline.js (COLA_KEY, FOTO_COLA_KEY, procesarColaOffline, procesarColaFotos, ...)
 async function guardarEnNube() {
@@ -135,8 +159,8 @@ async function guardarEnNube() {
     } else {
       setNubeStatus("error", "Error al guardar");
       showToast("❌ " + (e.message||"Error al guardar"));
+      dbgW("guardarEnNube error:", e);
     }
-    console.error(e);
   } finally {
     btn.disabled = false;
     setTimeout(() => {
@@ -191,16 +215,16 @@ async function sincronizarPersonal() {
       .from("personal")
       .upsert(rows, { onConflict: "id" });
     if (error) {
-      console.warn("Sync personal:", error.message);
+      dbgW("Sync personal:", error.message);
       // Si hay efectivos extras sin persistencia local, avisar al operador
       if ((state.personalExtra||[]).length > 0) {
         showToast("⚠️ No se pudo sincronizar el personal extra con la nube");
       }
     } else {
-      console.log("Personal sincronizado OK");
+      dbg("Personal sincronizado OK");
     }
   } catch(e) {
-    console.warn("Error sincronizando personal:", e);
+    dbgW("Error sincronizando personal:", e);
     if ((state.personalExtra||[]).length > 0) {
       showToast("⚠️ Sin conexión — el personal extra no fue sincronizado");
     }
@@ -252,7 +276,7 @@ async function cargarPersonalDesdeNube() {
     cargarPersonalDesdeNube._cargado = true; // marcar como cargado
     return true;
   } catch(e) {
-    console.warn("Error cargando personal:", e);
+    dbgW("Error cargando personal:", e);
     return false;
   }
 }
@@ -297,7 +321,7 @@ async function cargarFlotaDesdeNube() {
 
     return true;
   } catch(e) {
-    console.warn("cargarFlotaDesdeNube error:", e);
+    dbgW("cargarFlotaDesdeNube error:", e);
     return false;
   }
 }
@@ -313,7 +337,7 @@ async function cargarUltimoInforme() {
     if (error || !data || !data.length) return;
     cargarDesdeNube(data[0]);
   } catch(e) {
-    console.error("Error cargando último informe:", e);
+    dbgW("Error cargando último informe:", e);
   }
 }
 
@@ -415,7 +439,7 @@ async function doLogout() {
       ]);
     }
   } catch(e) {
-    console.warn("signOut error/timeout (ignorado):", e);
+    dbgW("signOut error/timeout (ignorado):", e);
   } finally {
     // Siempre volver al login, aunque falle la red
     appInited = false;
@@ -428,8 +452,10 @@ async function doLogout() {
   }
 }
 
-// Stub mantenido por compatibilidad — la sesión real la gestiona onAuthStateChange
-function checkAuth() {}
+// Retorna true si hay sesión activa; la gestión real la hace onAuthStateChange
+function checkAuth() {
+  return !!(supaClient && currentUserEmail);
+}
 
 // ════════════════════════════════════════════
 //  NAVEGACIÓN POR TECLADO
@@ -833,11 +859,13 @@ async function initApp() {
 
   // ── Cargar flota desde Supabase — timeout 6 s ────────────────
   setNubeStatus("saving", "Cargando flota...");
+  let flotaOffline = false;
   try {
     const withTimeout6 = p => Promise.race([p, new Promise((_,rej) => setTimeout(()=>rej(new Error("timeout")),6000))]);
     await withTimeout6(cargarFlotaDesdeNube());
   } catch(e) {
-    console.warn("cargarFlota timeout/error — usando flota local:", e);
+    dbgW("cargarFlota timeout/error — usando flota local:", e);
+    flotaOffline = true;
   }
 
   buildSecNav();
@@ -855,10 +883,12 @@ async function initApp() {
   const withTimeout = (promise, ms) =>
     Promise.race([promise, new Promise((_,rej) => setTimeout(()=>rej(new Error("timeout")), ms))]);
 
+  let personalOffline = false;
   try {
     await withTimeout(cargarPersonalDesdeNube(), TIMEOUT_MS);
   } catch(e) {
-    console.warn("cargarPersonal timeout/error:", e);
+    dbgW("cargarPersonal timeout/error:", e);
+    personalOffline = true;
   }
   poblarSelectOficial();
   poblarSelectAyudante();
@@ -884,7 +914,13 @@ async function initApp() {
   renderPersonal("");
   // NO se carga el último informe automáticamente —
   // el usuario puede hacerlo desde "Cargar informe anterior" en el Tab 1
-  setNubeStatus("online", "Conectado");
+  if (flotaOffline && personalOffline) {
+    setNubeStatus("error", "⚠ Modo offline");
+  } else if (flotaOffline || personalOffline) {
+    setNubeStatus("saving", "⚠ Conexión parcial");
+  } else {
+    setNubeStatus("online", "Conectado");
+  }
   renderCalendario();
   // Mostrar badge si hay items en cola + intentar sincronizar
   actualizarIndicadorCola();
@@ -930,7 +966,7 @@ function poblarSelectAyudante() {
   // Agregar todos los efectivos del personal base
   const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
   todos.forEach(ef => {
-    if (ef.id === "p01") return; // Villalba es Oficial de Servicio, no ayudante
+    if (ef.funcion_base === "of_servicio") return; // El Oficial de Servicio titular no actúa como ayudante
     const opt = document.createElement("option");
     opt.value = `${ef.jerarquia} ${ef.nombre}`;
     opt.textContent = `${ef.jerarquia} ${ef.nombre}`;
@@ -1123,16 +1159,19 @@ function validarRolUnico(efId, rolId) {
 }
 
 // ── Ordenamiento del personal por rol y antigüedad ─────────────
-// Detectar si Villalba está en JPK (vacaciones) y aplicar ascenso automático
+// Detectar si el Oficial de Servicio titular está ausente (JPK/vacaciones)
+// Genérico: busca por funcion_base='of_servicio' en PERSONAL_BASE, no por ID hardcodeado
 function villalbaAusente() {
-  const ef = PERSONAL_BASE.find(p => p.id === "p01");
-  const d  = state.personal["p01"] || {};
+  const ef = PERSONAL_BASE.find(p => p.funcion_base === "of_servicio");
+  if (!ef) return false;
+  const d   = state.personal[ef.id] || {};
   const hoy = new Date().toISOString().split("T")[0];
   const vacHasta = d.vacHasta || ef?.vacHasta || "";
-  // En JPK si tiene fecha vacHasta vigente en perfil O si la función del día es vacaciones
   if (vacHasta && vacHasta >= hoy) return true;
   return (d.funcion || ef?.funcion_base || "") === "vacaciones";
 }
+// Alias semántico para claridad en el código
+const oficialTitularAusente = villalbaAusente;
 
 // Obtener función efectiva de un efectivo (considera ascenso automático)
 function getFuncionEfectiva(ef) {
@@ -1150,8 +1189,8 @@ function getFuncionEfectiva(ef) {
   const validos = FUNCIONES.map(f => f.id);
   if (!validos.includes(func)) func = "chofer";
 
-  // Si Villalba está en JPK (vacaciones) y este es Ayala, sube a Oficial de Servicio
-  if (ef.id === "p02" && villalbaAusente()) {
+  // Si el Oficial titular está ausente (JPK), el siguiente enc_tercio asciende a Oficial de Servicio
+  if (ef.funcion_base === "enc_tercio" && villalbaAusente()) {
     func = "of_servicio";
   }
   return func;
@@ -1207,7 +1246,7 @@ function loadStorage() {
     // Si los datos guardados son de un día distinto, ignorar (arranque limpio)
     const today = new Date().toISOString().split("T")[0];
     if (p.fecha && p.fecha !== today) {
-      console.log("Datos de día anterior detectados — iniciando guardia limpia");
+      dbg("Datos de día anterior detectados — iniciando guardia limpia");
       _loadVacaciones(); // restaurar vacaciones incluso al descartar el estado viejo
       return;
     }
@@ -1239,7 +1278,7 @@ function saveStorage() {
     const { personalExtra: _pe, eliminados: _el, ...draftState } = state;
     localStorage.setItem("dpt_v4", JSON.stringify(draftState));
   } catch(e) {
-    console.error("Error al guardar en localStorage (cuota llena?):", e);
+    dbgW("Error al guardar en localStorage (cuota llena?):", e);
     if (typeof showToast === "function") showToast("⚠️ No se pudo guardar el borrador localmente");
   }
   saveVacaciones(); // siempre persistir vacaciones por separado
@@ -1281,6 +1320,9 @@ function goTab(n) {
   if (n===5) renderPersonal(document.getElementById("searchPersonal")?.value||"");
   if (n===6) renderAdminFlota();
   if (n===7) renderHistorialTab();
+  // QA-010: mostrar barra de progreso solo en tabs de relevamiento (1-4)
+  const progWrap = document.getElementById("progWrap");
+  if (progWrap) progWrap.style.display = (n <= 4) ? "" : "none";
   // Actualizar step indicator
   updateStepIndicator(n);
   window.scrollTo(0,0);
@@ -1445,18 +1487,18 @@ function renderList(secId) {
         chips = fields.slice(0,3).map(f => {
           const val = d[f.id]||"—";
           const col = OPT_COLORS[val]||"#888";
-          return `<span style="color:${col};font-size:10px;font-weight:700">${f.label.split(" ")[0]}:${val}</span>`;
+          return `<span style="color:${col};font-size:10px;font-weight:700">${f.label.split(" ")[0]}:${escapeHTML(val)}</span>`;
         }).join(" · ");
       } else {
-        chips = d.obs ? d.obs.slice(0,45)+(d.obs.length>45?"…":"") : "Sin obs.";
+        chips = d.obs ? escapeHTML(d.obs.slice(0,45))+(d.obs.length>45?"…":"") : "Sin obs.";
       }
     }
-    const subtitle = v.marca ? `${v.marca} ${v.modelo||""}`.trim() : (v.modelo||"");
+    const subtitle = v.marca ? escapeHTML(`${v.marca} ${v.modelo||""}`.trim()) : escapeHTML(v.modelo||"");
     const item = document.createElement("div");
     item.className = "vehicle-item"+(done?" done":"");
     item.innerHTML = `
       <div>
-        <div class="v-ro">${sec.type==="no_ident"?"Dom. ":"RO "}${v.ro}${subtitle?" — "+subtitle:""}</div>
+        <div class="v-ro">${sec.type==="no_ident"?"Dom. ":"RO "}${escapeHTML(v.ro)}${subtitle?" — "+subtitle:""}</div>
         <div class="v-sub">${done ? (chips||"Guardado") : "Sin datos"}</div>
       </div>
       <div class="v-ico">${done?"✅":"⬜"}</div>`;
@@ -1770,7 +1812,7 @@ async function compartirActa() {
       await navigator.share({ title: "Acta de pasaje — DI.PRO.TRAN.", text: txt });
       return;
     } catch(e) {
-      if (e.name !== "AbortError") console.warn("share:", e);
+      if (e.name !== "AbortError") dbgW("share:", e);
     }
   }
   // Fallback: abrir WhatsApp Web con el texto
@@ -1866,19 +1908,19 @@ function renderDashboard() {
   document.getElementById("d-p-franco").textContent  = pStats.franco;
   document.getElementById("d-p-servicio").textContent= pStats.servicio;
   document.getElementById("d-p-otros").textContent   = pStats.otros;
-  // Mostrar alerta si Villalba está de vacaciones (JPK)
+  // Mostrar alerta si el Oficial titular está de vacaciones (JPK)
   const alertEl = document.getElementById("ascensoAlert");
   if (alertEl) {
     const ausente = villalbaAusente();
     alertEl.style.display = ausente ? "block" : "none";
     if (ausente) {
-      // Texto dinámico: buscar quién asciende
-      const oficial = PERSONAL_BASE.find(p => p.id === "p01");
-      const suplente = PERSONAL_BASE.find(p => p.id === "p02");
-      const nomOficial = oficial ? `${oficial.jerarquia}. ${oficial.nombre.split(" ")[0]}` : "Oficial";
+      // Texto dinámico: buscar titular y suplente por funcion_base
+      const oficial  = PERSONAL_BASE.find(p => p.funcion_base === "of_servicio");
+      const suplente = PERSONAL_BASE.find(p => p.funcion_base === "enc_tercio");
+      const nomOficial  = oficial  ? `${oficial.jerarquia}. ${oficial.nombre.split(" ")[0]}`  : "Oficial";
       const nomSuplente = suplente ? `${suplente.jerarquia} ${suplente.nombre}` : "siguiente en rango";
       const txtEl = document.getElementById("ascensoAlertTxt");
-      if (txtEl) txtEl.innerHTML = `🎖️ ${nomOficial} en JPK (vacaciones) — <b>${nomSuplente}</b> asciende automáticamente a Oficial de Servicio`;
+      if (txtEl) txtEl.innerHTML = `🎖️ ${escapeHTML(nomOficial)} en JPK (vacaciones) — <b>${escapeHTML(nomSuplente)}</b> asciende automáticamente a Oficial de Servicio`;
     }
   }
 
@@ -2075,13 +2117,13 @@ function renderFlotaList() {
       chips = fields.map(f => {
         const val = d[f.id] || "—";
         const cls = val==="OK"?"fchip-ok":val==="NO"?"fchip-no":val==="Roto"?"fchip-roto":val==="N/A"?"fchip-na":"fchip-nd";
-        return `<span class="fchip ${cls}">${f.label}: ${val}</span>`;
+        return `<span class="fchip ${cls}">${escapeHTML(f.label)}: ${escapeHTML(val)}</span>`;
       }).join("");
     }
 
     // Sección de detalle
     const updInfo = updDate
-      ? `<div class="fecha-tag">📅 Última actualización: ${(() => { const [ay,am,ad]=updDate.split("-"); return `${ad}/${am}/${ay}`; })()}${d._updatedGuard ? " — " + d._updatedGuard : ""}</div>`
+      ? `<div class="fecha-tag">📅 Última actualización: ${(() => { const [ay,am,ad]=updDate.split("-"); return `${ad}/${am}/${ay}`; })()}${d._updatedGuard ? " — " + escapeHTML(d._updatedGuard) : ""}</div>`
       : `<div class="fecha-tag">⚠️ Sin registros de esta unidad</div>`;
 
     const obsBlock = d.obs
@@ -2207,8 +2249,8 @@ function onSearchInput(val) {
     row.style.cssText = "padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center";
     row.innerHTML = `
       <div>
-        <div style="font-weight:700;font-size:14px">${item.v.ro}${sub?" — "+sub:""}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${item.secLabel}${item.isExtra?" · Manual":""}</div>
+        <div style="font-weight:700;font-size:14px">${escapeHTML(item.v.ro)}${sub?" — "+escapeHTML(sub):""}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${escapeHTML(item.secLabel)}${item.isExtra?" · Manual":""}</div>
       </div>
       <div>${done?"✅":"⬜"}</div>`;
     row.addEventListener("click", (e) => {
@@ -2444,13 +2486,16 @@ function cargarCompInforme(id) {
 
 // ── MODO OSCURO ──────────────────────────────────────────────────────────────
 function applyDarkMode(dark) {
+  // Tailwind usa darkMode:'class' → necesita clase 'dark' en <html>
+  document.documentElement.classList.toggle("dark", dark);
+  // Mantener data-theme para compatibilidad con CSS custom properties
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   const btn = document.getElementById("btnDark");
   if (btn) btn.textContent = dark ? "☀️" : "🌙";
 }
 
 function toggleDarkMode() {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const isDark = document.documentElement.classList.contains("dark");
   const next = !isDark;
   localStorage.setItem("dpt_dark", next ? "1" : "0");
   applyDarkMode(next);
@@ -2487,7 +2532,7 @@ if ("serviceWorker" in navigator) {
           }
         });
       });
-    }).catch(err => console.warn("SW registration failed:", err));
+    }).catch(err => dbgW("SW registration failed:", err));
   });
 }
 
