@@ -390,16 +390,16 @@ tailwind.config = {
 </div>
 
 <!-- MODAL: datos de vehículo -->
-<div class="modal-bd" id="vModal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+<div class="modal-bd" id="vModal" role="dialog" aria-modal="true" aria-labelledby="mTitle" onclick="if(event.target===this)closeModal()">
   <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="modal-hdr flex justify-between items-center mb-4">
       <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide" id="mTitle">RO —</span>
-      <button class="modal-x bg-gray-100 border border-gray-200 text-gray-700 rounded-full w-8 h-8 text-lg cursor-pointer flex items-center justify-center" onclick="closeModal()">✕</button>
+      <button type="button" class="modal-x bg-gray-100 border border-gray-200 text-gray-700 rounded-full w-8 h-8 text-lg cursor-pointer flex items-center justify-center" onclick="closeModal()">✕</button>
     </div>
     <div id="mBody"></div>
-    <button class="btn btn-primary" onclick="saveVehicle()">Guardar ✓</button>
-    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-danger" id="btnDarDeBaja" onclick="eliminarMovilActual()" style="font-size:12px;padding:9px;opacity:.75;margin-top:4px">🚫 Dar de baja este móvil</button>
+    <button type="button" class="btn btn-primary" onclick="saveVehicle()">Guardar ✓</button>
+    <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    <button type="button" class="btn btn-danger" id="btnDarDeBaja" onclick="eliminarMovilActual()" style="font-size:12px;padding:9px;opacity:.75;margin-top:4px">🚫 Dar de baja este móvil</button>
   </div>
 </div>
 
