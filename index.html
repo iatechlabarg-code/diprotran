@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DI.PRO.TRAN. – Sistema de Guardia</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
@@ -146,20 +146,13 @@ tailwind.config = {
     <span class="text-[12px]">🚗 Continuar relevamiento →</span>
     <span id="btnContinuarSub" class="text-[9px] font-normal opacity-80 tracking-normal normal-case"></span>
   </button>
-  <div class="legend-strip flex gap-2 flex-wrap bg-white border border-gray-200 rounded-lg px-3 py-2.5 mb-3.5 shadow-sm">
-    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--ok)"></div><span><b>OK</b> — Funciona</span></div>
-    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--no)"></div><span><b>NO</b> — Falta/Fuera</span></div>
-    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--roto)"></div><span><b>Roto</b> — Dañado</span></div>
-    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--na)"></div><span><b>N/A</b> — No aplica</span></div>
-  </div>
-
   <div class="card bg-white border border-gray-200 rounded-lg p-4 mb-3 shadow-sm">
     <div class="card-title font-strong text-[13px] font-bold text-pba-blue uppercase tracking-wider mb-3.5 flex items-center gap-2 border-b-2 border-pba-teal2 pb-2.5">📋 Datos del Informe</div>
     <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">
       Fecha del informe
       <span id="fechaAutoBadge" class="inline-block ml-1.5 text-[8px] font-bold font-display uppercase tracking-wider text-pba-teal bg-pba-teal2 rounded px-1.5 py-px">✓ auto</span>
     </label>
-    <input type="date" id="inpFecha" class="w-full">
+    <input type="date" id="inpFecha" class="w-full" aria-label="Fecha del informe">
 
     <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Oficial de Servicio</label>
     <select id="inpOficial" onchange="state.oficial=this.value;saveStorage()" class="w-full">
@@ -181,9 +174,9 @@ tailwind.config = {
         <option value="">— Seleccionar —</option>
       </select>
       <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Legajo</label>
-      <input type="text" id="nuevoAyLegajo" placeholder="Ej: 430.000" class="w-full">
+      <input type="text" id="nuevoAyLegajo" placeholder="Ej: 430.000" class="w-full" aria-label="Legajo del ayudante">
       <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Nombre completo</label>
-      <input type="text" id="nuevoAyNombre" placeholder="Ej: García Juan Pablo" class="w-full">
+      <input type="text" id="nuevoAyNombre" placeholder="Ej: García Juan Pablo" class="w-full" aria-label="Nombre del ayudante">
       <div class="flex gap-2 mt-2.5">
         <button onclick="guardarNuevoAyudante()" class="btn btn-primary btn-sm" style="flex:1;margin-bottom:0">Guardar</button>
         <button onclick="cancelarNuevoAyudante()" class="btn btn-outline btn-sm" style="flex:1;margin-bottom:0">Cancelar</button>
@@ -216,6 +209,12 @@ tailwind.config = {
 <!-- ════════════ TAB 2: MÓVILES ════════════ -->
 <div class="step" id="step2">
   <br>
+  <div class="legend-strip flex gap-2 flex-wrap bg-white border border-gray-200 rounded-lg px-3 py-2.5 mb-3.5 shadow-sm">
+    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--ok)"></div><span><b>OK</b> — Funciona</span></div>
+    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--no)"></div><span><b>NO</b> — Falta/Fuera</span></div>
+    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--roto)"></div><span><b>Roto</b> — Dañado</span></div>
+    <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--na)"></div><span><b>N/A</b> — No aplica</span></div>
+  </div>
   <div class="sum-grid grid grid-cols-3 gap-2 mb-3.5">
     <div class="sum-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black text-pba-blue font-strong" id="sumTotal">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Total</div></div>
     <div class="sum-box ok-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black font-strong" id="sumDone" style="color:var(--ok)">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Listos</div></div>
@@ -224,7 +223,7 @@ tailwind.config = {
 
   <div class="relative mb-3.5">
     <div class="absolute left-3 top-1/2 -translate-y-1/2 text-base pointer-events-none">🔍</div>
-    <input type="text" id="searchRO" placeholder="Buscar RO, marca o modelo..." autocomplete="off"
+    <input type="text" id="searchRO" placeholder="Buscar RO, marca o modelo..." autocomplete="off" aria-label="Buscar móvil por RO, marca o modelo"
       style="padding-left:38px;margin-bottom:0"
       oninput="onSearchInput(this.value)" >
     <div id="searchResults" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--white);border:1.5px solid var(--ba-teal);border-radius:10px;z-index:50;overflow:hidden;box-shadow:0 8px 24px rgba(0,174,195,.15)"></div>
@@ -361,7 +360,7 @@ tailwind.config = {
   <div class="flex gap-2 mb-3 items-center">
     <div class="personal-search-wrap relative flex-1 mb-0">
       <span class="personal-search-icon absolute left-3 top-1/2 -translate-y-1/2 text-[15px] pointer-events-none">🔍</span>
-      <input type="text" id="searchPersonal" placeholder="Buscar efectivo..." oninput="renderPersonal(this.value)" class="pl-9 w-full">
+      <input type="text" id="searchPersonal" placeholder="Buscar efectivo..." oninput="renderPersonal(this.value)" class="pl-9 w-full" aria-label="Buscar efectivo">
     </div>
     <button onclick="openNuevoEfModal()" class="bg-pba-blue text-white border-none rounded-lg px-3.5 py-3 text-[13px] font-bold cursor-pointer font-display whitespace-nowrap shrink-0">➕ Agregar</button>
   </div>
@@ -377,7 +376,7 @@ tailwind.config = {
 </div>
 
 <!-- MODAL: elegir categoría RO nuevo -->
-<div class="modal-bd" id="newRoModal">
+<div class="modal-bd" id="newRoModal" role="dialog" aria-modal="true" aria-labelledby="newRoNum">
   <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="modal-hdr flex justify-between items-center mb-4">
       <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide">➕ RO <span id="newRoNum"></span></span>
@@ -391,7 +390,7 @@ tailwind.config = {
 </div>
 
 <!-- MODAL: datos de vehículo -->
-<div class="modal-bd" id="vModal">
+<div class="modal-bd" id="vModal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="modal-hdr flex justify-between items-center mb-4">
       <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide" id="mTitle">RO —</span>
@@ -405,7 +404,7 @@ tailwind.config = {
 </div>
 
 <!-- MODAL: efectivo -->
-<div class="modal-bd" id="efModal">
+<div class="modal-bd" id="efModal" role="dialog" aria-modal="true" aria-labelledby="efTitle">
   <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="modal-hdr flex justify-between items-center mb-4">
       <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide" id="efTitle">Efectivo</span>
@@ -418,14 +417,14 @@ tailwind.config = {
 </div>
 
 <!-- MODAL: lista completa de flota -->
-<div class="modal-bd" id="flotaModal">
+<div class="modal-bd" id="flotaModal" role="dialog" aria-modal="true" aria-labelledby="flotaModalTitle">
   <div class="flota-modal bg-white rounded-t-2xl border-t-4 border-pba-teal w-full max-h-[92vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="flex justify-between items-center px-3.5 pt-3.5 pb-2.5 border-b border-gray-200">
       <div class="font-display text-[16px] font-bold text-pba-blue" id="flotaModalTitle">Flota Completa</div>
       <button class="modal-x bg-gray-100 border border-gray-200 text-gray-700 rounded-full w-8 h-8 text-lg cursor-pointer flex items-center justify-center" onclick="closeFlotaModal()">✕</button>
     </div>
     <div class="flota-search sticky top-0 bg-white px-3.5 py-2.5 border-b border-gray-200 z-10">
-      <input type="text" id="flotaSearch" placeholder="Buscar RO, marca, modelo..." style="margin-bottom:0;padding:9px 13px" oninput="renderFlotaList()">
+      <input type="text" id="flotaSearch" placeholder="Buscar RO, marca, modelo..." style="margin-bottom:0;padding:9px 13px" oninput="renderFlotaList()" aria-label="Buscar en flota por RO, marca o modelo">
     </div>
     <div class="flota-filters flex gap-1.5 overflow-x-auto px-3.5 py-2 border-b border-gray-200" id="flotaFilters"></div>
     <div id="flotaList"></div>
@@ -433,7 +432,7 @@ tailwind.config = {
 </div>
 
 <!-- MODAL: historial de informes en la nube -->
-<div class="modal-bd" id="historialModal">
+<div class="modal-bd" id="historialModal" role="dialog" aria-modal="true" aria-label="Historial de Informes">
   <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="modal-hdr flex justify-between items-center mb-4">
       <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide">📋 Historial de Informes</span>
@@ -442,7 +441,7 @@ tailwind.config = {
     <div class="info-box bg-pba-teal2 border border-[#a3d8e7] rounded-lg p-3 text-[13px] mb-3 text-pba-blue">
       Tocá un informe para cargarlo en la app.
     </div>
-    <input type="text" id="historialSearch" placeholder="🔍 Buscar por fecha, oficial, ayudante..."
+    <input type="text" id="historialSearch" placeholder="🔍 Buscar por fecha, oficial, ayudante..." aria-label="Buscar historial por fecha, oficial o ayudante"
       style="margin-bottom:10px;font-size:14px;padding:9px 13px"
       oninput="filtrarHistorial(this.value)">
     <div id="historialList">
@@ -453,7 +452,7 @@ tailwind.config = {
 </div>
 
 <!-- MODAL: nuevo efectivo -->
-<div class="modal-bd" id="nuevoEfModal">
+<div class="modal-bd" id="nuevoEfModal" role="dialog" aria-modal="true" aria-labelledby="nuevoEfTitle">
   <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="modal-hdr flex justify-between items-center mb-4">
       <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide" id="nuevoEfTitle">➕ Nuevo Efectivo</span>
@@ -468,7 +467,7 @@ tailwind.config = {
 
 
 <!-- MODAL: comparador de informes -->
-<div class="modal-bd" id="compModal">
+<div class="modal-bd" id="compModal" role="dialog" aria-modal="true" aria-label="Comparador de Informes">
   <div class="comp-modal bg-white rounded-t-2xl border-t-4 border-pba-teal w-full max-h-[92vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="flex justify-between items-start px-4 pt-3.5 pb-2.5 border-b border-gray-200">
       <div>
@@ -514,9 +513,9 @@ tailwind.config = {
         </summary>
         <div class="admin-add-sec-form bg-white border-[1.5px] border-pba-teal rounded-lg p-3.5 mt-2">
           <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 font-strong">ID de sección (sin espacios, ej: secNueva)</label>
-          <input type="text" id="newSecId" placeholder="secNueva" class="w-full mb-2">
+          <input type="text" id="newSecId" placeholder="secNueva" class="w-full mb-2" aria-label="ID interno de la nueva sección">
           <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-2 font-strong">Nombre visible</label>
-          <input type="text" id="newSecLabel" placeholder="Nueva Sección" class="w-full mb-2">
+          <input type="text" id="newSecLabel" placeholder="Nueva Sección" class="w-full mb-2" aria-label="Nombre visible de la nueva sección">
           <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-2 font-strong">Tipo de vehículo</label>
           <select id="newSecType" class="w-full mb-3">
             <option value="movil_std">Móvil estándar</option>
@@ -541,7 +540,7 @@ tailwind.config = {
     <!-- PERSONAL -->
     <div id="adminPanelPersonal" style="display:none">
       <div class="flex items-center justify-between mb-3 gap-2">
-        <input type="text" id="adminPersonalSearch" placeholder="🔍 Buscar efectivo..."
+        <input type="text" id="adminPersonalSearch" placeholder="🔍 Buscar efectivo..." aria-label="Buscar efectivo en gestión de personal"
           class="flex-1" style="font-size:13px;padding:8px 12px" oninput="renderAdminPersonal(this.value)">
         <button class="btn btn-primary btn-sm whitespace-nowrap" onclick="openNuevoEfModal()">+ Nuevo</button>
       </div>
@@ -554,7 +553,7 @@ tailwind.config = {
 <div class="step" id="step7">
   <div class="p-3.5">
     <div class="font-display text-[16px] font-black text-pba-blue mb-3">📋 Historial de Guardias</div>
-    <input type="text" id="histTabSearch" placeholder="🔍 Buscar por fecha (AAAA-MM-DD), oficial, ayudante..."
+    <input type="text" id="histTabSearch" placeholder="🔍 Buscar por fecha (AAAA-MM-DD), oficial, ayudante..." aria-label="Buscar en historial de guardias"
       class="w-full mb-1.5" style="font-size:14px;padding:9px 13px"
       oninput="filtrarHistorialTab(this.value)">
     <div id="histTabStats" class="text-[11px] text-pba-grey text-right mb-2.5"></div>
@@ -576,7 +575,7 @@ tailwind.config = {
 </div>
 
 <!-- ── MODAL ACTA DE PASAJE ── -->
-<div class="modal-bd" id="actaModal">
+<div class="modal-bd" id="actaModal" role="dialog" aria-modal="true" aria-label="Generar Acta">
   <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-blue pt-4 px-4 pb-7 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
     <div class="modal-hdr flex justify-between items-center mb-4">
       <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide">📋 Acta de pasaje</span>
@@ -598,14 +597,14 @@ tailwind.config = {
 
 <div class="toast fixed bottom-[94px] left-1/2 -translate-x-1/2 bg-pba-blue text-white px-5 py-2.5 rounded-full text-[13px] font-bold opacity-0 transition-opacity duration-300 z-[300] whitespace-nowrap shadow-lg font-display" id="toast"></div>
 
-<nav class="navbar fixed bottom-0 left-0 right-0 bg-white border-t-2 border-pba-teal2 flex overflow-x-auto z-[150] shadow-[0_-2px_12px_rgba(0,53,128,.10)]">
-  <div class="nav-item active flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav1" onclick="goTab(1)"><span class="nav-icon text-[19px]">🏠</span>Inicio</div>
-  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav2" onclick="goTab(2)"><span class="nav-icon text-[19px]">🚗</span>Móviles</div>
-  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav3" onclick="goTab(3)"><span class="nav-icon text-[19px]">📄</span>Exportar</div>
-  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav4" onclick="goTab(4)"><span class="nav-icon text-[19px]">📊</span>Resumen</div>
-  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav5" onclick="goTab(5)"><span class="nav-icon text-[19px]">👮</span>Personal</div>
-  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav6" onclick="goTab(6)"><span class="nav-icon text-[19px]">⚙️</span>Admin</div>
-  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav7" onclick="goTab(7)"><span class="nav-icon text-[19px]">📋</span>Historial</div>
+<nav class="navbar fixed bottom-0 left-0 right-0 bg-white border-t-2 border-pba-teal2 flex overflow-x-auto z-[150] shadow-[0_-2px_12px_rgba(0,53,128,.10)]" role="navigation" aria-label="Navegación principal">
+  <div class="nav-item active flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav1" onclick="goTab(1)" role="button" tabindex="0" aria-label="Inicio" onkeydown="if(event.key==='Enter'||event.key===' ')goTab(1)"><span class="nav-icon text-[19px]">🏠</span>Inicio</div>
+  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav2" onclick="goTab(2)" role="button" tabindex="0" aria-label="Móviles" onkeydown="if(event.key==='Enter'||event.key===' ')goTab(2)"><span class="nav-icon text-[19px]">🚗</span>Móviles</div>
+  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav3" onclick="goTab(3)" role="button" tabindex="0" aria-label="Exportar" onkeydown="if(event.key==='Enter'||event.key===' ')goTab(3)"><span class="nav-icon text-[19px]">📄</span>Exportar</div>
+  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav4" onclick="goTab(4)" role="button" tabindex="0" aria-label="Resumen" onkeydown="if(event.key==='Enter'||event.key===' ')goTab(4)"><span class="nav-icon text-[19px]">📊</span>Resumen</div>
+  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav5" onclick="goTab(5)" role="button" tabindex="0" aria-label="Personal" onkeydown="if(event.key==='Enter'||event.key===' ')goTab(5)"><span class="nav-icon text-[19px]">👮</span>Personal</div>
+  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav6" onclick="goTab(6)" role="button" tabindex="0" aria-label="Admin" onkeydown="if(event.key==='Enter'||event.key===' ')goTab(6)"><span class="nav-icon text-[19px]">⚙️</span>Admin</div>
+  <div class="nav-item        flex-none min-w-[50px] flex flex-col items-center px-1 py-2 cursor-pointer text-[9px] text-pba-grey gap-0.5 font-display font-bold tracking-wide uppercase" id="nav7" onclick="goTab(7)" role="button" tabindex="0" aria-label="Historial" onkeydown="if(event.key==='Enter'||event.key===' ')goTab(7)"><span class="nav-icon text-[19px]">📋</span>Historial</div>
 </nav>
 
 <script src="js/main.js"></script>
