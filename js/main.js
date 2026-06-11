@@ -239,9 +239,21 @@ async function cargarPersonalDesdeNube() {
       .order("ord", { ascending: true })
       .limit(200);
     if (error || !data || !data.length) return false;
+    // H-02: excluir personal dado de baja (activo === false) y removerlo de las
+    // listas locales si quedó de una sesión anterior. NULL se trata como activo
+    // para no perder registros base sin la columna seteada.
+    data.filter(row => row.activo === false).forEach(row => {
+      const i = PERSONAL_BASE.findIndex(p => p.id === row.id);
+      if (i >= 0) PERSONAL_BASE.splice(i, 1);
+      if (state.personalExtra) {
+        const j = state.personalExtra.findIndex(p => p.id === row.id);
+        if (j >= 0) state.personalExtra.splice(j, 1);
+      }
+    });
+    const activos = data.filter(row => row.activo !== false);
     // Actualizar PERSONAL_BASE con todos los efectivos de la nube.
     // No hay distinción "base vs extra" — la tabla personal ES la lista de la sección.
-    data.forEach(row => {
+    activos.forEach(row => {
       const idx = PERSONAL_BASE.findIndex(p=>p.id===row.id);
       const ef = {
         id: row.id, ord: row.ord || 99,
@@ -373,7 +385,7 @@ function cargarDesdeNube(inf) {
   renderCalendario();
 }
 
-// → Ver js/historial.js (openHistorialModal, closeHistorialModal, _historialData, filtrarHistorial, cargarInformeHistorial)
+// → Ver js/historial.js (cargarInformeHistorial, renderHistorialTab)
 function aplicarRestriccionesRol() {
   const esJefe = currentUserRol === "jefe";
 
@@ -485,7 +497,7 @@ document.addEventListener("keydown", function(e) {
   if (key === "Escape") {
     const modales = [
       "vModal","efModal","nuevoEfModal","newRoModal",
-      "flotaModal","historialModal","compModal","actaModal"
+      "flotaModal","compModal","actaModal"
     ];
     for (const id of modales) {
       const el = document.getElementById(id);

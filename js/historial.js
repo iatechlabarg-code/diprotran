@@ -4,74 +4,11 @@
 //                      showToast, saveStorage, renderList, goTab
 // ════════════════════════════════════════════
 
-async function openHistorialModal() {
-  document.getElementById("historialModal").classList.add("open");
-  const list = document.getElementById("historialList");
-  list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Cargando...</div>';
-  if (!supaClient) {
-    list.innerHTML = '<div style="text-align:center;color:var(--no);padding:20px;font-size:13px">Sin conexión a la nube</div>';
-    return;
-  }
-  try {
-    const { data, error } = await supaClient
-      .from("informes")
-      .select("id, fecha, oficial, ayudante, created_at")
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (error) throw error;
-    if (!data || !data.length) {
-      list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">No hay informes guardados aún</div>';
-      return;
-    }
-    // Guardar en caché para filtrado local
-    _historialData = data;
-    // Limpiar buscador
-    const searchEl = document.getElementById("historialSearch");
-    if (searchEl) searchEl.value = "";
-    // Renderizar todos
-    filtrarHistorial("");
-  } catch(e) {
-    console.error("Error al cargar historial:", e);
-    list.innerHTML = `<div style="text-align:center;color:var(--no);padding:20px;font-size:13px">Error al cargar el historial</div>`;
-  }
-}
-
-function closeHistorialModal() {
-  document.getElementById("historialModal").classList.remove("open");
-}
-let _historialData = []; // cache para filtrado local
-
-function filtrarHistorial(query) {
-  const q = (query||"").toLowerCase().trim();
-  const list = document.getElementById("historialList");
-  if (!list) return;
-  const items = _historialData.filter(inf => {
-    if (!q) return true;
-    return (inf.fecha||"").includes(q) ||
-           (inf.oficial||"").toLowerCase().includes(q) ||
-           (inf.ayudante||"").toLowerCase().includes(q);
-  });
-  if (!items.length) {
-    list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Sin resultados</div>';
-    return;
-  }
-  list.innerHTML = items.map(inf => {
-    const [y,m,d] = (inf.fecha||"").split("-");
-    const fechaStr = inf.fecha ? `${d}/${m}/${y}` : "Sin fecha";
-    const creadoEn = new Date(inf.created_at).toLocaleString("es-AR",{dateStyle:"short",timeStyle:"short"});
-    return `<div class="historial-item" onclick="cargarInformeHistorial('${escapeHTML(inf.id)}')">
-      <div class="historial-fecha">📄 ${fechaStr}</div>
-      <div class="historial-meta">Oficial: ${escapeHTML(inf.oficial)||"—"} · Aydte: ${escapeHTML(inf.ayudante)||"—"}</div>
-      <div class="historial-meta" style="margin-top:2px">Guardado: ${escapeHTML(creadoEn)}</div>
-    </div>`;
-  }).join("");
-}
-
-
+// H-08: se eliminó el modal de historial antiguo (openHistorialModal,
+// closeHistorialModal, filtrarHistorial, _historialData) — reemplazado por el Tab 7.
 
 async function cargarInformeHistorial(id) {
   if (!supaClient) return;
-  closeHistorialModal();
   setNubeStatus("saving", "Cargando informe...");
   try {
     const { data, error } = await supaClient
@@ -175,7 +112,7 @@ function _renderHistTabList() {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
         <div>
           <div class="hist-fecha">📄 ${fechaStr}</div>
-          <div class="hist-meta">Oficial: ${inf.oficial||"—"} · Aydte: ${inf.ayudante||"—"}</div>
+          <div class="hist-meta">Oficial: ${escapeHTML(inf.oficial)||"—"} · Aydte: ${escapeHTML(inf.ayudante)||"—"}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           ${novCount ? `<div style="font-size:10px;font-weight:700;color:var(--ba-teal);margin-bottom:2px">⚠️ ${novCount} novel.</div>` : ""}
@@ -217,16 +154,9 @@ async function verDetalleHistorial(id) {
   panel.scrollTop = 0;
 
   let inf = _histTabData.find(x => x.id === id);
-  if (!inf?.personal && supaClient) {
-    try {
-      const { data, error } = await supaClient
-        .from("informes").select("*").eq("id", id).single();
-      if (error) throw error;
-      inf = data;
-    } catch(e) {
-      content.innerHTML = '<div style="text-align:center;color:var(--no);padding:32px">Error al cargar el detalle</div>';
-      return;
-    }
+  if (!inf) {
+    content.innerHTML = '<div style="text-align:center;color:var(--no);padding:32px">No se encontró el informe</div>';
+    return;
   }
 
   const parts     = (inf.fecha||"").split("-");
@@ -259,7 +189,7 @@ async function verDetalleHistorial(id) {
           ${fotoTag}
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:13px">RO ${ro}${sub ? " — " + sub : ""} <span style="font-weight:400;color:var(--muted);font-size:11px">${secLb}</span></div>
-            ${vd.obs?.trim() ? `<div style="font-size:12px;margin-top:3px;color:var(--text)">${vd.obs}</div>` : ""}
+            ${vd.obs?.trim() ? `<div style="font-size:12px;margin-top:3px;color:var(--text)">${escapeHTML(vd.obs)}</div>` : ""}
             ${vd.fotoUrl ? `<div style="font-size:10px;color:var(--ba-teal);font-weight:700;margin-top:3px">📷 Con foto</div>` : ""}
           </div>
         </div>
@@ -281,8 +211,8 @@ async function verDetalleHistorial(id) {
   content.innerHTML = `
     <div style="background:var(--white);border-radius:var(--r);border:1px solid var(--border);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)">
       <div style="font-family:var(--font-display);font-size:20px;font-weight:900;color:var(--blue1);margin-bottom:6px">📄 ${fechaStr}</div>
-      <div style="font-size:13px;margin-bottom:3px"><b>Oficial de servicio:</b> ${inf.oficial||"—"}</div>
-      <div style="font-size:13px"><b>Ayudante:</b> ${inf.ayudante||"—"}</div>
+      <div style="font-size:13px;margin-bottom:3px"><b>Oficial de servicio:</b> ${escapeHTML(inf.oficial)||"—"}</div>
+      <div style="font-size:13px"><b>Ayudante:</b> ${escapeHTML(inf.ayudante)||"—"}</div>
     </div>
     <div class="stat-grid-2" style="margin-bottom:4px">
       <div class="stat-card"><div class="s-val">${doneCount}<span style="font-size:14px;color:var(--muted)">/${allKeys.length}</span></div><div class="s-lbl">Vehículos revisados</div></div>

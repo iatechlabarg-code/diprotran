@@ -260,18 +260,10 @@ function saveNuevoEfectivo() {
     return;
   }
 
-  const jerInfo   = JERARQUIAS_LIST.find(j=>j.abrev===jerarquia);
-  const escalafon = jerInfo?.esc || "E.G.";
-
   const efData = {
     nombre,
     jerarquia,
-    escalafon,
     escalafon:    document.getElementById("nef_escalafon")?.value || "",
-    subescalafon: (() => {
-      const abrev = document.getElementById("nef_escalafon")?.value || "";
-      return ESCALAFONES.find(e=>e.abrev===abrev)?.label || abrev;
-    })(),
     legajo,
     destino:          document.getElementById("nef_destino")?.value.trim()          || "Direc. Transp.",
     calle:            document.getElementById("nef_calle")?.value.trim()            || "—",
@@ -330,9 +322,22 @@ function saveNuevoEfectivo() {
   }
 }
 
-function eliminarEfectivo() {
+async function eliminarEfectivo() {
   if (!editandoEfId) return;
   if (!confirm("¿Eliminar este efectivo del sistema? Esta acción no se puede deshacer.")) return;
+  // H-05: sincronizar la baja con Supabase (mismo patrón que darDeBajaEfAdmin)
+  if (supaClient) {
+    try {
+      const { error } = await supaClient
+        .from("personal")
+        .update({ activo: false })
+        .eq("id", editandoEfId);
+      if (error) throw error;
+    } catch(e) {
+      console.warn("eliminarEfectivo:", e);
+      showToast("⚠️ No se pudo sincronizar la baja con la nube");
+    }
+  }
   // Quitar de personalExtra
   state.personalExtra = (state.personalExtra||[]).filter(p=>p.id!==editandoEfId);
   // Quitar de PERSONAL_BASE (solo si es extra)
@@ -340,6 +345,7 @@ function eliminarEfectivo() {
   if (idx >= 0 && PERSONAL_BASE[idx].id.startsWith("px_")) PERSONAL_BASE.splice(idx,1);
   // Quitar datos de estado
   delete state.personal[editandoEfId];
+  editandoEfId = null;
   saveStorage();
   closeNuevoEfModal();
   renderPersonal(document.getElementById("searchPersonal")?.value||"");
@@ -499,7 +505,7 @@ function renderCalendario() {
           width:22px;height:16px;border-radius:3px;display:flex;align-items:center;
           justify-content:center;flex-shrink:0;font-family:'Encode Sans',sans-serif">${iniciales}</div>
         <div>
-          <span style="font-weight:700">${ef.jerarquia} ${ef.nombre}</span>
+          <span style="font-weight:700">${escapeHTML(ef.jerarquia)} ${escapeHTML(ef.nombre)}</span>
           <span style="color:var(--muted);font-size:10px;margin-left:6px">🌴 JPK hasta ${hd}/${hm}/${hy}</span>
         </div>
       </div>`;
@@ -568,49 +574,49 @@ function renderPersonal(filtro) {
       // ── Datos institucionales normativos ─────────────────────
       `<div class="perfil-item full" style="background:var(--ba-teal4);border-color:var(--ba-teal3)">
         <div class="perfil-lbl">Subescalafón — Ley 13982, Art. 27</div>
-        <div class="perfil-val"><b>${ef.escalafon||""}</b> · ${ESCALAFONES.find(e=>e.abrev===(ef.escalafon||""))?.label||ef.subescalafon||""}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">Situación de revista: ${sitRev}</div>
+        <div class="perfil-val"><b>${escapeHTML(ef.escalafon)||""}</b> · ${escapeHTML(ESCALAFONES.find(e=>e.abrev===(ef.escalafon||""))?.label||ef.subescalafon)||""}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Situación de revista: ${escapeHTML(sitRev)}</div>
       </div>`,
       diasLic ? `<div class="perfil-item full" style="background:var(--ok-bg);border-color:var(--ok)">
         <div class="perfil-lbl">Antigüedad · Licencia anual (Decreto 1050/09, Art. 43)</div>
         <div class="perfil-val">${antig} año${antig!==1?"s":""} de servicio → <b>${diasLic} días corridos</b> de licencia ordinaria</div>
       </div>` : "",
       // ── Datos personales ──────────────────────────────────────
-      (ef.calle && ef.calle!=="—") || (ef.domicilio && ef.domicilio!=="—") ? `<div class="perfil-item full"><div class="perfil-lbl">Calle y Número</div><div class="perfil-val">${ef.calle||ef.domicilio||"—"}</div></div>` : "",
-      ef.localidad && ef.localidad!=="—" ? `<div class="perfil-item"><div class="perfil-lbl">Localidad</div><div class="perfil-val">${ef.localidad}</div></div>` : "",
-      ef.partido   && ef.partido!=="—"   ? `<div class="perfil-item"><div class="perfil-lbl">Partido</div><div class="perfil-val">${ef.partido}</div></div>` : "",
-      ef.fechaNac  && ef.fechaNac!=="—"  ? `<div class="perfil-item"><div class="perfil-lbl">Fecha Nac.</div><div class="perfil-val">${ef.fechaNac}</div></div>` : "",
-      ef.fechaIngreso && ef.fechaIngreso!=="—" ? `<div class="perfil-item"><div class="perfil-lbl">Ingreso a la institución</div><div class="perfil-val">${ef.fechaIngreso}</div></div>` : "",
+      (ef.calle && ef.calle!=="—") || (ef.domicilio && ef.domicilio!=="—") ? `<div class="perfil-item full"><div class="perfil-lbl">Calle y Número</div><div class="perfil-val">${escapeHTML(ef.calle||ef.domicilio)||"—"}</div></div>` : "",
+      ef.localidad && ef.localidad!=="—" ? `<div class="perfil-item"><div class="perfil-lbl">Localidad</div><div class="perfil-val">${escapeHTML(ef.localidad)}</div></div>` : "",
+      ef.partido   && ef.partido!=="—"   ? `<div class="perfil-item"><div class="perfil-lbl">Partido</div><div class="perfil-val">${escapeHTML(ef.partido)}</div></div>` : "",
+      ef.fechaNac  && ef.fechaNac!=="—"  ? `<div class="perfil-item"><div class="perfil-lbl">Fecha Nac.</div><div class="perfil-val">${escapeHTML(ef.fechaNac)}</div></div>` : "",
+      ef.fechaIngreso && ef.fechaIngreso!=="—" ? `<div class="perfil-item"><div class="perfil-lbl">Ingreso a la institución</div><div class="perfil-val">${escapeHTML(ef.fechaIngreso)}</div></div>` : "",
       ef.grupoSanguineo && ef.grupoSanguineo!=="—" ? `<div class="perfil-item">
         <div class="perfil-lbl">Grupo sanguíneo / RH</div>
         <div class="perfil-val" style="font-size:16px;font-weight:900;color:var(--no)">
-          ${ef.grupoSanguineo}
+          ${escapeHTML(ef.grupoSanguineo)}
         </div>
       </div>` : "",
       // ── Datos operativos ─────────────────────────────────────
-      ef.criaJurisd && ef.criaJurisd!=="—" ? `<div class="perfil-item full"><div class="perfil-lbl">Cría / Jurisdicción</div><div class="perfil-val">${ef.criaJurisd}</div></div>` : "",
-      ef.licHab    && ef.licHab!=="—"    ? `<div class="perfil-item full"><div class="perfil-lbl">Licencia Habilitante</div><div class="perfil-val mono">${ef.licHab}</div></div>` : "",
-      ef.armamento && ef.armamento!=="—" ? `<div class="perfil-item"><div class="perfil-lbl">Armamento</div><div class="perfil-val mono">${ef.armamento}</div></div>` : "",
-      ef.chaleco   && ef.chaleco!=="—"   ? `<div class="perfil-item"><div class="perfil-lbl">Chaleco</div><div class="perfil-val mono">${ef.chaleco}</div></div>` : "",
+      ef.criaJurisd && ef.criaJurisd!=="—" ? `<div class="perfil-item full"><div class="perfil-lbl">Cría / Jurisdicción</div><div class="perfil-val">${escapeHTML(ef.criaJurisd)}</div></div>` : "",
+      ef.licHab    && ef.licHab!=="—"    ? `<div class="perfil-item full"><div class="perfil-lbl">Licencia Habilitante</div><div class="perfil-val mono">${escapeHTML(ef.licHab)}</div></div>` : "",
+      ef.armamento && ef.armamento!=="—" ? `<div class="perfil-item"><div class="perfil-lbl">Armamento</div><div class="perfil-val mono">${escapeHTML(ef.armamento)}</div></div>` : "",
+      ef.chaleco   && ef.chaleco!=="—"   ? `<div class="perfil-item"><div class="perfil-lbl">Chaleco</div><div class="perfil-val mono">${escapeHTML(ef.chaleco)}</div></div>` : "",
       // ── Contacto ─────────────────────────────────────────────
-      ef.cel       && ef.cel!=="—"       ? `<div class="perfil-item"><div class="perfil-lbl">Celular</div><div class="perfil-val">📱 ${ef.cel}</div></div>` : "",
-      ef.email     && ef.email!=="—"     ? `<div class="perfil-item"><div class="perfil-lbl">Email</div><div class="perfil-val" style="font-size:11px">✉️ ${ef.email}</div></div>` : "",
-      ef.nota      && ef.nota!==""       ? `<div class="perfil-item full" style="background:var(--warn-bg);border-color:#fbbf24"><div class="perfil-lbl">Nota</div><div class="perfil-val">${ef.nota}</div></div>` : "",
+      ef.cel       && ef.cel!=="—"       ? `<div class="perfil-item"><div class="perfil-lbl">Celular</div><div class="perfil-val">📱 ${escapeHTML(ef.cel)}</div></div>` : "",
+      ef.email     && ef.email!=="—"     ? `<div class="perfil-item"><div class="perfil-lbl">Email</div><div class="perfil-val" style="font-size:11px">✉️ ${escapeHTML(ef.email)}</div></div>` : "",
+      ef.nota      && ef.nota!==""       ? `<div class="perfil-item full" style="background:var(--warn-bg);border-color:#fbbf24"><div class="perfil-lbl">Nota</div><div class="perfil-val">${escapeHTML(ef.nota)}</div></div>` : "",
     ].filter(Boolean).join("");
 
     return `<div class="efectivo-card${func==="guardia"?" asignado":""}" id="efcard_${ef.id}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <div class="ef-nombre">${ef.nombre}</div>
-            <span class="escalafon-badge">${ef.escalafon||""}</span>
+            <div class="ef-nombre">${escapeHTML(ef.nombre)}</div>
+            <span class="escalafon-badge">${escapeHTML(ef.escalafon)||""}</span>
           </div>
           <div style="font-size:12px;color:var(--blue1);font-weight:600;margin-top:2px;font-family:var(--font-display)">
-            ${ef.jerarquia} — ${jerFull}
+            ${escapeHTML(ef.jerarquia)} — ${escapeHTML(jerFull)}
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:1px">Leg. ${ef.legajo}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">Leg. ${escapeHTML(ef.legajo)}</div>
           <div class="ef-funcion ${func}" style="margin-top:6px">${icon} ${funcLabel}</div>
-          ${d.obs ? `<div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic">${d.obs}</div>` : ""}
+          ${d.obs ? `<div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic">${escapeHTML(d.obs)}</div>` : ""}
           ${perfilItems ? `<span class="ef-toggle" onclick="togglePerfil('${ef.id}')">▸ Ver perfil completo</span>
           <div class="ef-perfil" id="perfil_${ef.id}">
             <div class="perfil-grid">${perfilItems}</div>
