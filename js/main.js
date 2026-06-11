@@ -168,12 +168,10 @@ async function guardarEnNube() {
 async function sincronizarPersonal() {
   if (!supaClient) return;
   try {
-    // Upsert de todos los efectivos (base + extras)
-    // Deduplicar por id: los extras ya están en PERSONAL_BASE, evita el error
-    // "ON CONFLICT DO UPDATE command cannot affect row a second time" (PG 21000)
+    // Upsert de toda la lista de personal.
+    // Deduplicar por id porque los nuevos están en PERSONAL_BASE Y en state.personalExtra.
     const todosRaw = [...PERSONAL_BASE, ...(state.personalExtra||[])];
     const todos = [...new Map(todosRaw.map(p => [p.id, p])).values()];
-    console.log("🔍 sincronizarPersonal — ids a upsertear:", todos.map(e => e.id));
     // Corregir datos históricos incorrectos antes de sincronizar
     todos.forEach(ef => {
       if (ef.id === "p07") {
@@ -213,26 +211,14 @@ async function sincronizarPersonal() {
       .from("personal")
       .upsert(rows, { onConflict: "id" });
     if (error) {
-      // LOG DETALLADO para diagnóstico — ver consola del navegador (F12)
-      console.error("❌ Sync personal ERROR:", {
-        message: error.message,
-        code:    error.code,
-        details: error.details,
-        hint:    error.hint,
-        rows_sample: rows.slice(0,2).map(r => ({id: r.id, factor_rh: r.factor_rh}))
-      });
-      // Si hay efectivos extras sin persistencia local, avisar al operador
-      if ((state.personalExtra||[]).length > 0) {
-        showToast("⚠️ Error sync: " + (error.message || error.code || "500"));
-      }
+      dbgW("Sync personal:", error.message, error.code);
+      showToast("⚠️ No se pudo guardar el personal en la nube");
     } else {
       dbg("Personal sincronizado OK");
     }
   } catch(e) {
     dbgW("Error sincronizando personal:", e);
-    if ((state.personalExtra||[]).length > 0) {
-      showToast("⚠️ Sin conexión — el personal extra no fue sincronizado");
-    }
+    showToast("⚠️ Sin conexión — el personal no fue sincronizado");
   }
 }
 
@@ -249,7 +235,8 @@ async function cargarPersonalDesdeNube() {
       .order("ord", { ascending: true })
       .limit(200);
     if (error || !data || !data.length) return false;
-    // Actualizar PERSONAL_BASE con datos de la nube
+    // Actualizar PERSONAL_BASE con todos los efectivos de la nube.
+    // No hay distinción "base vs extra" — la tabla personal ES la lista de la sección.
     data.forEach(row => {
       const idx = PERSONAL_BASE.findIndex(p=>p.id===row.id);
       const ef = {
@@ -262,18 +249,22 @@ async function cargarPersonalDesdeNube() {
         cel: row.cel, email: row.email, licHab: row.lic_hab,
         armamento: row.armamento, chaleco: row.chaleco,
         criaJurisd: row.cria_jurisd, grupoSanguineo: row.grupo_sanguineo,
+        factorRh: row.factor_rh,
         situacionRevista: row.situacion_revista, vacHasta: row.vac_hasta,
         nota: row.nota, funcion_base: row.funcion_base,
         funcion_fija: row.funcion_fija, domicilio: row.calle,
+        activo: row.activo !== false,
       };
       if (idx >= 0) {
-        // Actualizar datos del efectivo existente sin reemplazar props locales que no vienen de la nube
+        // Actualizar efectivo existente con datos completos de la nube
         PERSONAL_BASE[idx] = { ...PERSONAL_BASE[idx], ...ef };
-      } else if (row.id.startsWith("px_")) {
-        // Efectivo agregado por el usuario — evitar duplicados en carga doble
+      } else {
+        // Persona nueva en la nube (alta via admin desde otro dispositivo, o personal base
+        // cuyo id no está en el fallback hardcodeado) — agregarla a la lista
         if (!PERSONAL_BASE.find(p => p.id === row.id)) {
           PERSONAL_BASE.push(ef);
         }
+        // Marcar como "agregado" en state.personalExtra para que persista localmente
         if (!state.personalExtra) state.personalExtra = [];
         if (!state.personalExtra.find(p => p.id === row.id)) state.personalExtra.push(ef);
       }
