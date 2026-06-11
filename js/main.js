@@ -2548,26 +2548,11 @@ if ("serviceWorker" in navigator) {
         if (!newSW) return;
         newSW.addEventListener("statechange", () => {
           if (newSW.state === "installed" && navigator.serviceWorker.controller) {
-            mostrarNotificacionUpdate(newSW);
+            showToast("🔄 Nueva versión disponible — recargando...");
+            setTimeout(() => location.reload(), 800);
           }
         });
       });
-    }).catch(err => dbgW("SW registration failed:", err));
+    });
   });
-}
-
-function mostrarNotificacionUpdate(newSW) {
-  const banner = document.createElement("div");
-  banner.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--blue1);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-family:var(--font-display);font-weight:700;z-index:9000;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw";
-  banner.innerHTML = `
-    <span>🔄 Nueva versión disponible</span>
-    <button style="background:#fff;color:var(--blue1);border:none;border-radius:6px;padding:5px 12px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">
-      Actualizar
-    </button>`;
-  banner.querySelector("button").onclick = () => {
-    banner.remove();
-    newSW.postMessage("SKIP_WAITING");
-    window.location.reload();
-  };
-  document.body.appendChild(banner);
 }
