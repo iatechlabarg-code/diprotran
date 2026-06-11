@@ -170,6 +170,7 @@ async function sincronizarPersonal() {
   try {
     // Upsert de todos los efectivos (base + extras)
     const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
+    console.log("🔍 sincronizarPersonal — ids a upsertear:", todos.map(e => e.id));
     // Corregir datos históricos incorrectos antes de sincronizar
     todos.forEach(ef => {
       if (ef.id === "p07") {
@@ -209,10 +210,17 @@ async function sincronizarPersonal() {
       .from("personal")
       .upsert(rows, { onConflict: "id" });
     if (error) {
-      dbgW("Sync personal:", error.message);
+      // LOG DETALLADO para diagnóstico — ver consola del navegador (F12)
+      console.error("❌ Sync personal ERROR:", {
+        message: error.message,
+        code:    error.code,
+        details: error.details,
+        hint:    error.hint,
+        rows_sample: rows.slice(0,2).map(r => ({id: r.id, factor_rh: r.factor_rh}))
+      });
       // Si hay efectivos extras sin persistencia local, avisar al operador
       if ((state.personalExtra||[]).length > 0) {
-        showToast("⚠️ No se pudo sincronizar el personal extra con la nube");
+        showToast("⚠️ Error sync: " + (error.message || error.code || "500"));
       }
     } else {
       dbg("Personal sincronizado OK");
