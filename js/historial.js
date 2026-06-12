@@ -205,7 +205,7 @@ async function verDetalleHistorial(id) {
   const extHTML = extras.length ? `
     <div class="dash-section" style="margin-top:16px">Vehículos adicionales</div>
     ${extras.map(e => `<div style="font-size:13px;padding:5px 0;border-bottom:1px solid var(--border)">
-      ${e.ro||""}${e.tipo ? " — " + e.tipo : ""}${e.obs ? ` <span style="color:var(--muted)">· ${e.obs}</span>` : ""}
+      ${escapeHTML(e.ro)||""}${e.tipo ? " — " + escapeHTML(e.tipo) : ""}${e.obs ? ` <span style="color:var(--muted)">· ${escapeHTML(e.obs)}</span>` : ""}
     </div>`).join("")}` : "";
 
   content.innerHTML = `
@@ -222,7 +222,36 @@ async function verDetalleHistorial(id) {
     <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border)">
       <button class="btn btn-gold" onclick="confirmarCargarHistorial('${inf.id}')" style="margin-bottom:6px">📥 Cargar esta guardia en la app</button>
       <div style="font-size:11px;color:var(--muted)">⚠️ Reemplaza los datos del turno actual</div>
+      ${currentUserRol === "jefe" ? `
+      <button class="btn btn-outline" onclick="eliminarInformeHistorial('${inf.id}')"
+        style="margin-top:12px;color:var(--no);border-color:var(--no)">🗑 Eliminar este informe</button>
+      <div style="font-size:11px;color:var(--muted)">Borra la guardia de la nube para todos los dispositivos. No se puede deshacer.</div>` : ""}
     </div>`;
+}
+
+// ── Eliminar un informe del historial (solo rol JEFE) ───────────────────────
+async function eliminarInformeHistorial(id) {
+  if (currentUserRol !== "jefe") { showToast("⛔ Solo un Jefe puede eliminar informes"); return; }
+  if (!supaClient) { showToast("❌ Sin conexión a la nube"); return; }
+  const inf = _histTabData.find(x => x.id === id);
+  const parts = (inf?.fecha||"").split("-");
+  const fechaStr = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : "esta guardia";
+  if (!confirm(`¿Eliminar el informe del ${fechaStr} definitivamente?\nEsta acción no se puede deshacer.`)) return;
+  try {
+    const { error } = await supaClient.from("informes").delete().eq("id", id);
+    if (error) throw error;
+    _histTabData     = _histTabData.filter(x => x.id !== id);
+    _histTabFiltered = _histTabFiltered.filter(x => x.id !== id);
+    _histTabShown    = 0;
+    cerrarDetalleHistorial();
+    _renderHistTabList();
+    const stats = document.getElementById("histTabStats");
+    if (stats) stats.textContent = `${_histTabData.length} guardias registradas`;
+    showToast("🗑 Informe eliminado");
+  } catch(e) {
+    console.error("eliminarInformeHistorial:", e);
+    showToast("❌ No se pudo eliminar (verificar permisos en Supabase)");
+  }
 }
 
 function cerrarDetalleHistorial() {

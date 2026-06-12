@@ -497,7 +497,7 @@ document.addEventListener("keydown", function(e) {
   if (key === "Escape") {
     const modales = [
       "vModal","efModal","nuevoEfModal","newRoModal",
-      "flotaModal","compModal","actaModal"
+      "flotaModal","compModal","actaModal","countModal"
     ];
     for (const id of modales) {
       const el = document.getElementById(id);
@@ -1721,6 +1721,49 @@ function updateSummary() {
   document.getElementById("sumTotal").textContent = t;
   document.getElementById("sumDone").textContent  = d;
   document.getElementById("sumPend").textContent  = t-d;
+}
+
+// ── Listado de móviles por contador (Total / Completados / Pendientes) ──────
+// Se abre al tocar los números del resumen en los tabs Móviles y Exportar.
+function verMovilesContados(tipo) {
+  const modal = document.getElementById("countModal");
+  const title = document.getElementById("countModalTitle");
+  const list  = document.getElementById("countModalList");
+  if (!modal || !title || !list) return;
+  const elim = state.eliminados || [];
+  const tituloMap = { total:"🚓 Todos los móviles", done:"✅ Móviles completados", pend:"⏳ Móviles pendientes" };
+  title.textContent = tituloMap[tipo] || "Móviles";
+
+  let html = "", count = 0;
+  SECTIONS.forEach(sec => {
+    const rows = sec.vehicles
+      .filter(v => !elim.includes(sec.id + "_" + v.ro))
+      .map(v => {
+        const key  = sec.id + "_" + v.ro;
+        const vd   = state.vehicles[key] || {};
+        const done = !!vd._done;
+        if (tipo === "done" && !done) return "";
+        if (tipo === "pend" && done)  return "";
+        count++;
+        const sub = v.modelo || v.marca || "";
+        const nov = done && ((vd.obs && vd.obs.trim() !== "") || vd.fotoUrl);
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <div style="min-width:0"><b>RO ${escapeHTML(v.ro)}</b>${sub ? " — " + escapeHTML(sub) : ""}</div>
+          <div style="flex-shrink:0;font-size:11px;font-weight:700;color:${done ? "var(--ok)" : "var(--warn)"}">${nov ? "⚠️ " : ""}${done ? "✔ Completado" : "⏳ Pendiente"}</div>
+        </div>`;
+      }).join("");
+    if (rows) html += `<div class="dash-section" style="margin-top:12px">${escapeHTML(sec.label)}</div>${rows}`;
+  });
+
+  list.innerHTML = html || '<div style="text-align:center;color:var(--muted);padding:24px;font-size:13px">No hay móviles en esta categoría</div>';
+  const stats = document.getElementById("countModalStats");
+  if (stats) stats.textContent = count ? `${count} móvil${count === 1 ? "" : "es"}` : "";
+  modal.classList.add("open");
+}
+
+function closeCountModal() {
+  const modal = document.getElementById("countModal");
+  if (modal) modal.classList.remove("open");
 }
 
 // ════════════════════════════════════════════
