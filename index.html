@@ -221,9 +221,9 @@ tailwind.config = {
     <div class="leg-item flex items-center gap-1.5 text-xs font-medium"><div class="leg-dot w-2.5 h-2.5 rounded-sm shrink-0" style="background:var(--na)"></div><span><b>N/A</b> — No aplica</span></div>
   </div>
   <div class="sum-grid grid grid-cols-3 gap-2 mb-3.5">
-    <div class="sum-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black text-pba-blue font-strong" id="sumTotal">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Total</div></div>
-    <div class="sum-box ok-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black font-strong" id="sumDone" style="color:var(--ok)">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Listos</div></div>
-    <div class="sum-box warn-box-c bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black font-strong" id="sumPend" style="color:var(--warn)">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Pendientes</div></div>
+    <div class="sum-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm cursor-pointer" role="button" onclick="verMovilesContados('total')"><div class="num text-2xl font-black text-pba-blue font-strong" id="sumTotal">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Total</div></div>
+    <div class="sum-box ok-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm cursor-pointer" role="button" onclick="verMovilesContados('done')"><div class="num text-2xl font-black font-strong" id="sumDone" style="color:var(--ok)">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Listos</div></div>
+    <div class="sum-box warn-box-c bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm cursor-pointer" role="button" onclick="verMovilesContados('pend')"><div class="num text-2xl font-black font-strong" id="sumPend" style="color:var(--warn)">0</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Pendientes</div></div>
   </div>
 
   <div class="relative mb-3.5">
@@ -245,9 +245,9 @@ tailwind.config = {
   <div class="card bg-white border border-gray-200 rounded-lg p-4 mb-3 shadow-sm">
     <div class="card-title font-strong text-[13px] font-bold text-pba-blue uppercase tracking-wider mb-3.5 flex items-center gap-2 border-b-2 border-pba-teal2 pb-2.5">✅ Resumen final</div>
     <div class="sum-grid grid grid-cols-3 gap-2 mb-3.5">
-      <div class="sum-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black text-pba-blue font-strong" id="p-total">—</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Móviles</div></div>
-      <div class="sum-box ok-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black font-strong" id="p-done" style="color:var(--ok)">—</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Completados</div></div>
-      <div class="sum-box warn-box-c bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm"><div class="num text-2xl font-black font-strong" id="p-pend" style="color:var(--warn)">—</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Pendientes</div></div>
+      <div class="sum-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm cursor-pointer" role="button" onclick="verMovilesContados('total')"><div class="num text-2xl font-black text-pba-blue font-strong" id="p-total">—</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Móviles</div></div>
+      <div class="sum-box ok-box bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm cursor-pointer" role="button" onclick="verMovilesContados('done')"><div class="num text-2xl font-black font-strong" id="p-done" style="color:var(--ok)">—</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Completados</div></div>
+      <div class="sum-box warn-box-c bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm cursor-pointer" role="button" onclick="verMovilesContados('pend')"><div class="num text-2xl font-black font-strong" id="p-pend" style="color:var(--warn)">—</div><div class="lbl text-[10px] text-pba-grey mt-0.5 font-bold uppercase tracking-wide">Pendientes</div></div>
     </div>
     <div class="info-box" id="previewMeta"></div>
     <div id="pendWarn"></div>
@@ -433,6 +433,19 @@ tailwind.config = {
     </div>
     <div class="flota-filters flex gap-1.5 overflow-x-auto px-3.5 py-2 border-b border-gray-200" id="flotaFilters"></div>
     <div id="flotaList"></div>
+  </div>
+</div>
+
+<!-- MODAL: listado de móviles por contador -->
+<div class="modal-bd" id="countModal" role="dialog" aria-modal="true" aria-labelledby="countModalTitle">
+  <div class="modal bg-white rounded-t-2xl border-t-4 border-pba-teal pt-4 px-4 pb-8 w-full max-h-[90vh] overflow-y-auto" style="animation:slideUp .22s ease">
+    <div class="modal-hdr flex justify-between items-center mb-2">
+      <span class="modal-ttl text-[16px] font-bold text-pba-blue font-display tracking-wide" id="countModalTitle">Móviles</span>
+      <button class="modal-x bg-gray-100 border border-gray-200 text-gray-700 rounded-full w-8 h-8 text-lg cursor-pointer flex items-center justify-center" onclick="closeCountModal()">✕</button>
+    </div>
+    <div id="countModalStats" class="text-[11px] text-pba-grey font-bold mb-2"></div>
+    <div id="countModalList"></div>
+    <button class="btn btn-outline" onclick="closeCountModal()" style="margin-top:12px">Cerrar</button>
   </div>
 </div>
 
