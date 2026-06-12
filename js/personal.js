@@ -355,6 +355,45 @@ async function eliminarEfectivo() {
   showToast("🗑 Efectivo eliminado");
 }
 
+// ── Listado de efectivos por contador (Guardia / Lic-Vac / RMH) ─────────────
+// Se abre al tocar los números del resumen en el tab Personal.
+// Usa la misma categorización que renderPersonal y reutiliza #countModal.
+function verEfectivosContados(tipo) {
+  const modal = document.getElementById("countModal");
+  const title = document.getElementById("countModalTitle");
+  const list  = document.getElementById("countModalList");
+  if (!modal || !title || !list) return;
+  const LICVAC_SET = new Set(["vacaciones","licencia","lic_especial"]);
+  const RMH_SET    = new Set(["baja_med","desafect","inactividad","act_limit"]);
+  const tituloMap  = { guardia:"👮 Personal de guardia", licvac:"🌴 Licencias / Vacaciones", rmh:"🏥 RMH / Otras situaciones" };
+  title.textContent = tituloMap[tipo] || "Personal";
+
+  const enCategoria = ef => {
+    const f = getFuncionEfectiva(ef);
+    if (tipo === "licvac") return LICVAC_SET.has(f);
+    if (tipo === "rmh")    return RMH_SET.has(f);
+    return !LICVAC_SET.has(f) && !RMH_SET.has(f); // guardia: operativos + franco
+  };
+
+  const items = ordenarPersonal(PERSONAL_BASE.filter(enCategoria));
+  list.innerHTML = items.map(ef => {
+    const func      = getFuncionEfectiva(ef);
+    const funcLabel = FUNCIONES.find(f=>f.id===func)?.label || func;
+    const d         = state.personal[ef.id] || {};
+    const hasta     = d.vacHasta || ef.vacHasta || "";
+    const [hy,hm,hd] = hasta.split("-");
+    const hastaTxt  = func === "vacaciones" && hasta ? ` · hasta ${hd}/${hm}/${hy}` : "";
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <div style="min-width:0"><b>${escapeHTML(ef.jerarquia)} ${escapeHTML(ef.nombre)}</b><div style="font-size:11px;color:var(--muted)">Leg. ${escapeHTML(ef.legajo)}</div></div>
+      <div style="flex-shrink:0;font-size:11px;font-weight:700;color:var(--blue1)">${escapeHTML(funcLabel)}${escapeHTML(hastaTxt)}</div>
+    </div>`;
+  }).join("") || '<div style="text-align:center;color:var(--muted);padding:24px;font-size:13px">No hay efectivos en esta categoría</div>';
+
+  const stats = document.getElementById("countModalStats");
+  if (stats) stats.textContent = items.length ? `${items.length} efectivo${items.length === 1 ? "" : "s"}` : "";
+  modal.classList.add("open");
+}
+
 function getPersonalStats() {
   const stats = { guardia:0, franco:0, servicio:0, otros:0 };
   const OPERATIVO_SET = new Set(["of_servicio","ayudante","enc_tercio","chofer"]);
