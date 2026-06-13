@@ -1060,10 +1060,13 @@ function aplicarDefaultsGuardia() {
       // Titular disponible → usarlo
       state.oficial = `${titularOf.jerarquia}. ${titularOf.nombre}`;
     } else {
-      // Titular ausente o no encontrado → buscar quién tiene of_servicio asignado hoy
-      const suplente = todos.find(e => state.personal[e.id]?.funcion === "of_servicio");
+      // Titular ausente → cadena de suplencia:
+      // 1. Alguien con of_servicio asignado explícitamente hoy
+      // 2. El enc_tercio (Ayala) si está disponible — suplente natural
+      const suplente = todos.find(e => state.personal[e.id]?.funcion === "of_servicio")
+                    || todos.find(e => e.funcion_base === "enc_tercio" && !_efEstaAusente(e.id));
       if (suplente) state.oficial = `${suplente.jerarquia}. ${suplente.nombre}`;
-      // Si nadie tiene el rol, dejar vacío — el usuario deberá elegir
+      // Si nadie está disponible, dejar vacío — el usuario deberá elegir
     }
     const selOf = document.getElementById("inpOficial");
     if (selOf && state.oficial) selOf.value = state.oficial;
