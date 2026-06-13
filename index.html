@@ -26,11 +26,11 @@ tailwind.config = {
   theme: {
     extend: {
       colors: {
-        'pba-blue':  'var(--blue1)',
-        'pba-blue2': 'var(--blue2)',
-        'pba-teal':  'var(--ba-teal)',
-        'pba-teal2': 'var(--ba-teal4)',
-        'pba-grey':  'var(--ba-grey)',
+        'pba-blue':  '#003580',
+        'pba-blue2': '#0050b3',
+        'pba-teal':  '#00aec3',
+        'pba-teal2': '#cae7ea',
+        'pba-grey':  '#838383',
       },
       fontFamily: {
         display: ["'Encode Sans Condensed'", "'Encode Sans'", 'sans-serif'],
@@ -99,13 +99,7 @@ tailwind.config = {
     <span id="colaBadge" style="display:none;background:#f59e0b;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;font-family:var(--font-display);margin-left:4px" title="Guardados pendientes de sincronizar">⏳ <span id="colaBadgeNum">0</span></span>
   </div>
   <div class="flex gap-1.5">
-    <select class="btn-nube secundario" onchange="setTheme(this.value)" id="themeSelect" title="Tema visual" style="width:auto;font-size:12px;padding:7px 8px;margin:0;cursor:pointer">
-      <option value="light">🎨 PBA</option>
-      <option value="dark">🌙 Oscuro</option>
-      <option value="minimal">◻️ Minimal</option>
-      <option value="corporativo">🏢 Corporativo</option>
-      <option value="contraste">🔆 Contraste</option>
-    </select>
+    <button class="btn-nube secundario" onclick="toggleDarkMode()" id="btnDark" title="Modo oscuro/claro" style="font-size:16px;padding:7px 10px">🌙</button>
     <button class="btn-nube secundario" onclick="goTab(7)" id="btnHistorial">📋 Historial</button>
     <button class="btn-nube secundario" onclick="doLogout()" id="btnLogout" title="Cerrar sesión">🔒 Salir</button>
     <button class="btn-nube" onclick="guardarEnNube()" id="btnGuardarNube">☁️ Guardar</button>
