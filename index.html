@@ -157,7 +157,7 @@ tailwind.config = {
       Fecha del informe
       <span id="fechaAutoBadge" class="inline-block ml-1.5 text-[8px] font-bold font-display uppercase tracking-wider text-pba-teal bg-pba-teal2 rounded px-1.5 py-px">✓ auto</span>
     </label>
-    <input type="date" id="inpFecha" class="w-full" aria-label="Fecha del informe">
+    <input type="date" id="inpFecha" onchange="state.fecha=this.value;saveStorage();renderGuardiaBanner()" class="w-full" aria-label="Fecha del informe">
 
     <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Oficial de Servicio</label>
     <select id="inpOficial" onchange="state.oficial=this.value;saveStorage()" class="w-full">

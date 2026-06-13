@@ -90,6 +90,9 @@ function fillPreview() {
 // ════════════════════════════════════════════
 
 function generatePDF(){
+  // ── Responsables obligatorios para el informe ────────────────────────────
+  if (!validateResponsables()) return;
+
   // ── Warning si quedan vehículos sin revisar ───────────────────────────────
   const total = countTotal(), done = countDone(), pend = total - done;
   if (pend > 0) {

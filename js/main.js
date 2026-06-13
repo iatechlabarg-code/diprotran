@@ -115,7 +115,7 @@ const DEFAULT_AYUDANTE_NOMBRE = "CABRAL BLANCO CRISTIAN";
 // → Ver js/offline.js (COLA_KEY, FOTO_COLA_KEY, procesarColaOffline, procesarColaFotos, ...)
 async function guardarEnNube() {
   if (!supaClient) { showToast("⚠️ Sin conexión a la nube"); return; }
-  if (!validateStep1()) return;
+  if (!validateResponsables()) return;
   const btn = document.getElementById("btnGuardarNube");
   btn.disabled = true;
   setNubeStatus("saving", "Verificando...");
@@ -1341,8 +1341,8 @@ function goTab(n) {
     showToast("⛔ Acceso restringido — solo Jefes");
     return;
   }
-  // Solo requerir encabezado completo para Móviles (2) y Exportar (3)
-  if ((n === 2 || n === 3) && !validateStep1()) return;
+  // Sincronizar encabezado sin bloquear navegación
+  syncStep1();
   currentTab = n;
   cerrarDetalleHistorial(); // cerrar overlay de detalle al cambiar de tab
   document.querySelectorAll(".step").forEach((el,i)    => el.classList.toggle("active", i+1===n));
@@ -1361,20 +1361,28 @@ function goTab(n) {
   window.scrollTo(0,0);
 }
 
-function validateStep1() {
+// Sincroniza los campos del encabezado con el state (sin bloquear)
+function syncStep1() {
   const f = document.getElementById("inpFecha").value;
   const o = document.getElementById("inpOficial").value;
   const a = document.getElementById("inpAyudante").value.trim();
-  if (!f||!o||!a) {
-    alert("Completá fecha, oficial de servicio y ayudante antes de continuar.");
-    goTab(1); return false;
-  }
-  state.fecha    = f;
-  state.oficial  = o;
-  state.ayudante = a;
-  updateHeaderDate();
+  if (f) state.fecha    = f;
+  if (o) state.oficial  = o;
+  if (a) state.ayudante = a;
   saveStorage();
   renderGuardiaBanner();
+}
+
+// Valida que los responsables estén completos (para generar informe)
+function validateResponsables() {
+  const f = state.fecha    || document.getElementById("inpFecha").value;
+  const o = state.oficial  || document.getElementById("inpOficial").value;
+  const a = (state.ayudante || document.getElementById("inpAyudante").value || "").trim();
+  if (!f||!o||!a) {
+    alert("Para generar el informe completá: fecha, oficial de servicio y ayudante de guardia.");
+    goTab(1);
+    return false;
+  }
   return true;
 }
 
