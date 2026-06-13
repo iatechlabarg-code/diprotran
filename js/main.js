@@ -396,9 +396,13 @@ function aplicarRestriccionesRol() {
   // Indicador visual de usuario y rol en la barra superior
   const userBadge = document.getElementById("userBadge");
   if (userBadge) {
-    const nombreCorto = currentUserEmail ? currentUserEmail.split("@")[0] : "";
+    const loginUser = currentUserEmail ? currentUserEmail.split("@")[0].toUpperCase() : "";
+    // Buscar nombre completo en PERSONAL_BASE por apellido (el usuario de login es el apellido)
+    const efMatch = (typeof PERSONAL_BASE !== "undefined") &&
+      PERSONAL_BASE.find(p => p.nombre && p.nombre.toUpperCase().startsWith(loginUser));
+    const nombreCompleto = efMatch ? efMatch.nombre.toUpperCase() : loginUser;
     const rolLabel = esJefe ? "Jefe" : "Oficial";
-    userBadge.textContent = nombreCorto ? `${nombreCorto} · ${rolLabel}` : rolLabel;
+    userBadge.textContent = nombreCompleto ? `${nombreCompleto} · ${rolLabel}` : rolLabel;
     userBadge.classList.remove("hidden");
     userBadge.style.background = esJefe ? "var(--ba-teal4)" : "var(--blue5)";
     userBadge.style.color = esJefe ? "var(--blue1)" : "var(--blue2)";
