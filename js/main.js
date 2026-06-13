@@ -393,23 +393,15 @@ function aplicarRestriccionesRol() {
   const nav6 = document.getElementById("nav6");
   if (nav6) nav6.style.display = esJefe ? "" : "none";
 
-  // Indicador visual del rol en la barra superior
-  let rolBadge = document.getElementById("rolBadge");
-  if (!rolBadge) {
-    rolBadge = document.createElement("span");
-    rolBadge.id = "rolBadge";
-    rolBadge.style.cssText = "font-size:10px;font-weight:700;font-family:var(--font-display);padding:2px 8px;border-radius:10px;margin-left:6px";
-    const nubeStatus = document.getElementById("nubeStatus");
-    if (nubeStatus) nubeStatus.appendChild(rolBadge);
-  }
-  if (esJefe) {
-    rolBadge.textContent = "JEFE";
-    rolBadge.style.background = "var(--ba-teal4)";
-    rolBadge.style.color = "var(--blue1)";
-  } else {
-    rolBadge.textContent = "OFICIAL";
-    rolBadge.style.background = "var(--blue5)";
-    rolBadge.style.color = "var(--blue2)";
+  // Indicador visual de usuario y rol en la barra superior
+  const userBadge = document.getElementById("userBadge");
+  if (userBadge) {
+    const nombreCorto = currentUserEmail ? currentUserEmail.split("@")[0] : "";
+    const rolLabel = esJefe ? "Jefe" : "Oficial";
+    userBadge.textContent = nombreCorto ? `${nombreCorto} · ${rolLabel}` : rolLabel;
+    userBadge.classList.remove("hidden");
+    userBadge.style.background = esJefe ? "var(--ba-teal4)" : "var(--blue5)";
+    userBadge.style.color = esJefe ? "var(--blue1)" : "var(--blue2)";
   }
 }
 
