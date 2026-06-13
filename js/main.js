@@ -919,9 +919,10 @@ async function initApp() {
   }
   poblarSelectOficial();
   poblarSelectAyudante();
-  aplicarDefaultsGuardia(); // auto-completar Villalba / Cabral si están vacíos
 
   // ── Restaurar vacaciones vigentes desde perfiles de Supabase ──────────────
+  // DEBE ejecutarse ANTES de aplicarDefaultsGuardia() para que los titulares
+  // ausentes (JPK/vacaciones) no se seleccionen como default.
   // state.personal arranca vacío cada día, pero los perfiles de PERSONAL_BASE
   // tienen vacHasta (sincronizado por saveEfectivo). Si la fecha sigue vigente,
   // restaurar la función para que el calendario, el dashboard y el modal
@@ -937,6 +938,8 @@ async function initApp() {
       }
     }
   });
+
+  aplicarDefaultsGuardia(); // auto-completar titular o suplente si están vacíos
 
   renderPersonal("");
   // NO se carga el último informe automáticamente —
@@ -1035,8 +1038,14 @@ function poblarSelectAyudante() {
 const _AUSENTES_SET = new Set(["vacaciones","licencia","lic_especial","baja_med","desafect","inactividad","franco","disponib","act_limit"]);
 
 function _efEstaAusente(efId) {
-  const func = state.personal[efId]?.funcion;
-  return func && _AUSENTES_SET.has(func);
+  const d = state.personal[efId] || {};
+  const func = d.funcion;
+  if (func && _AUSENTES_SET.has(func)) return true;
+  // También chequear vacHasta vigente en state o perfil base (como villalbaAusente)
+  const hoy = new Date().toISOString().split("T")[0];
+  const ef  = PERSONAL_BASE.find(p => p.id === efId);
+  const vacHasta = d.vacHasta || ef?.vacHasta || "";
+  return vacHasta && vacHasta >= hoy;
 }
 
 function aplicarDefaultsGuardia() {
