@@ -2560,32 +2560,52 @@ function cargarCompInforme(id) {
   document.getElementById("compResult").innerHTML = html;
 }
 
-// ── MODO OSCURO ──────────────────────────────────────────────────────────────
-function applyDarkMode(dark) {
-  // Tailwind usa darkMode:'class' → necesita clase 'dark' en <html>
-  document.documentElement.classList.toggle("dark", dark);
-  // Mantener data-theme para compatibilidad con CSS custom properties
-  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-  const btn = document.getElementById("btnDark");
-  if (btn) btn.textContent = dark ? "☀️" : "🌙";
+// ── SISTEMA DE TEMAS ─────────────────────────────────────────────────────────
+// Temas disponibles: light (PBA), dark, minimal, corporativo, contraste.
+// Cada uno redefine las variables CSS de :root vía [data-theme="…"] en style.css.
+const DPT_TEMAS = ["light", "dark", "minimal", "corporativo", "contraste"];
+
+function applyTheme(name) {
+  if (!DPT_TEMAS.includes(name)) name = "light";
+  // Tailwind usa darkMode:'class' → solo el tema oscuro lleva la clase 'dark'
+  document.documentElement.classList.toggle("dark", name === "dark");
+  document.documentElement.setAttribute("data-theme", name);
+  const sel = document.getElementById("themeSelect");
+  if (sel && sel.value !== name) sel.value = name;
 }
 
+function setTheme(name) {
+  localStorage.setItem("dpt_theme", name);
+  applyTheme(name);
+}
+
+// Compatibilidad con código previo (modo oscuro simple)
+function applyDarkMode(dark) { applyTheme(dark ? "dark" : "light"); }
 function toggleDarkMode() {
   const isDark = document.documentElement.classList.contains("dark");
-  const next = !isDark;
-  localStorage.setItem("dpt_dark", next ? "1" : "0");
-  applyDarkMode(next);
+  setTheme(isDark ? "light" : "dark");
 }
 
 // Aplicar preferencia guardada (o del sistema) al cargar
 (function() {
-  const saved = localStorage.getItem("dpt_dark");
-  if (saved !== null) {
-    applyDarkMode(saved === "1");
+  const savedTheme = localStorage.getItem("dpt_theme");
+  if (savedTheme !== null) {
+    applyTheme(savedTheme);
+    return;
+  }
+  // Migración desde la preferencia vieja dpt_dark
+  const savedDark = localStorage.getItem("dpt_dark");
+  if (savedDark !== null) {
+    applyTheme(savedDark === "1" ? "dark" : "light");
   } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    applyDarkMode(true);
+    applyTheme("dark");
   }
 })();
+// Sincronizar el selector cuando el DOM esté listo
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = document.getElementById("themeSelect");
+  if (sel) sel.value = document.documentElement.getAttribute("data-theme") || "light";
+});
 
 // ════════════════════════════════════════════
 //  TAB ADMIN — GESTIÓN DE FLOTA
