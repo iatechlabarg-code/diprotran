@@ -980,6 +980,45 @@ async function initApp() {
   if (getColaOffline().length > 0 && navigator.onLine) procesarColaOffline();
   updateStepIndicator(1);
   renderGuardiaBanner();
+
+  // ── Supabase Realtime: sincronización entre dispositivos ──────────
+  // Se suscribe a INSERT/UPDATE/DELETE en la tabla "informes".
+  // Cuando otro usuario guarda/modifica/elimina una guardia, se actualiza
+  // el historial automáticamente sin recargar la página.
+  if (supaClient) {
+    try {
+      supaClient
+        .channel('informes-realtime')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'informes' },
+          (payload) => {
+            console.log('[Realtime] Cambio en informes:', payload.eventType);
+            // Si el historial (tab 7) está visible, refrescar
+            const step7 = document.getElementById("step7");
+            if (step7 && step7.style.display !== "none") {
+              renderHistorialTab();
+            }
+            // Notificar al usuario
+            if (payload.eventType === 'INSERT') {
+              showToast("📥 Nueva guardia registrada por otro usuario");
+            } else if (payload.eventType === 'UPDATE') {
+              showToast("🔄 Guardia actualizada por otro usuario");
+            } else if (payload.eventType === 'DELETE') {
+              showToast("🗑 Guardia eliminada por otro usuario");
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[Realtime] Suscrito a cambios en informes');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[Realtime] Error en canal — Realtime puede no estar habilitado en la tabla informes');
+          }
+        });
+    } catch(e) {
+      console.warn('[Realtime] No se pudo suscribir:', e);
+    }
+  }
 }
 
 window.addEventListener("load", async () => {
