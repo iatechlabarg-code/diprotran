@@ -118,6 +118,9 @@ const PRIORIDAD_AYUDANTE = ['CABRAL BLANCO CRISTIAN', 'FINK NICOLAS'];
 const FUNCIONES_DIA_VALIDAS = ['Oficial de Servicio', 'Ayudante de Guardia', 'Encargado de Tercio', 'Chofer / Disponible'];
 const ESTADOS_AUSENCIA = ['JPK', 'RMH', 'Licencia Especial', 'Permiso', 'Comision'];
 
+// Normalizar texto para comparación sin tildes/acentos
+function _norm(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase(); }
+
 // → Ver js/offline.js (COLA_KEY, FOTO_COLA_KEY, procesarColaOffline, procesarColaFotos, ...)
 async function guardarEnNube() {
   if (!supaClient) { showToast("⚠️ Sin conexión a la nube"); return; }
@@ -1129,8 +1132,8 @@ function aplicarDefaultsGuardia() {
     // Recorrer cadena de prioridad para Oficial
     let asignado = false;
     for (const nombrePrioridad of PRIORIDAD_OFICIAL) {
-      const palabras = nombrePrioridad.toUpperCase().split(" ");
-      const candidato = todos.find(e => palabras.every(p => e.nombre.toUpperCase().includes(p)));
+      const palabras = _norm(nombrePrioridad).split(" ");
+      const candidato = todos.find(e => palabras.every(p => _norm(e.nombre).includes(p)));
       if (candidato && !_estaAusenteParaPrioridad(candidato)) {
         state.oficial = `${candidato.jerarquia}. ${candidato.nombre}`;
         asignado = true;
@@ -1151,8 +1154,8 @@ function aplicarDefaultsGuardia() {
     // Recorrer cadena de prioridad para Ayudante
     let asignado = false;
     for (const nombrePrioridad of PRIORIDAD_AYUDANTE) {
-      const palabras = nombrePrioridad.toUpperCase().split(" ");
-      const candidato = todos.find(e => palabras.every(p => e.nombre.toUpperCase().includes(p)));
+      const palabras = _norm(nombrePrioridad).split(" ");
+      const candidato = todos.find(e => palabras.every(p => _norm(e.nombre).includes(p)));
       if (candidato && !_estaAusenteParaPrioridad(candidato)) {
         state.ayudante = `${candidato.jerarquia} ${candidato.nombre}`;
         asignado = true;
@@ -1290,11 +1293,8 @@ function validarRolUnico(efId, rolId) {
 function villalbaAusente() {
   const ef = PERSONAL_BASE.find(p => p.funcion_base === "of_servicio");
   if (!ef) return false;
-  const d   = state.personal[ef.id] || {};
-  const hoy = new Date().toISOString().split("T")[0];
-  const vacHasta = d.vacHasta || ef?.vacHasta || "";
-  if (vacHasta && vacHasta >= hoy) return true;
-  return (d.funcion || ef?.funcion_base || "") === "vacaciones";
+  // Usar _efEstaAusente que cubre TODOS los estados de ausencia (JPK, RMH, licencia, franco, etc.)
+  return _efEstaAusente(ef.id);
 }
 // Alias semántico para claridad en el código
 const oficialTitularAusente = villalbaAusente;
@@ -1315,9 +1315,18 @@ function getFuncionEfectiva(ef) {
   const validos = FUNCIONES.map(f => f.id);
   if (!validos.includes(func)) func = "chofer";
 
-  // Si el Oficial titular está ausente (JPK), el siguiente enc_tercio asciende a Oficial de Servicio
-  if (ef.funcion_base === "enc_tercio" && villalbaAusente()) {
-    func = "of_servicio";
+  // Si el Oficial titular está ausente, el siguiente en PRIORIDAD_OFICIAL (no ausente) asciende
+  if (villalbaAusente() && !_efEstaAusente(ef.id)) {
+    // Buscar quién debería ser el suplente según cadena de prioridad (saltando al titular ausente)
+    const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
+    for (let i = 1; i < PRIORIDAD_OFICIAL.length; i++) {
+      const palabras = _norm(PRIORIDAD_OFICIAL[i]).split(" ");
+      const candidato = todos.find(e => palabras.every(p => _norm(e.nombre).includes(p)));
+      if (candidato && candidato.id === ef.id && !_efEstaAusente(candidato.id)) {
+        func = "of_servicio";
+        break;
+      }
+    }
   }
   return func;
 }
