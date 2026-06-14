@@ -128,9 +128,16 @@ function _renderHistTabList() {
 
 function filtrarHistorialTab(query) {
   const q = (query||"").toLowerCase().trim();
+  // Convertir búsqueda DD/MM/AAAA o DD/MM a formato compatible con AAAA-MM-DD
+  let qFecha = q;
+  const matchDMA = q.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
+  if (matchDMA) {
+    const [, dd, mm, yyyy] = matchDMA;
+    qFecha = yyyy ? `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}` : `-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+  }
   _histTabFiltered = _histTabData.filter(inf => {
     if (!q) return true;
-    return (inf.fecha||"").includes(q) ||
+    return (inf.fecha||"").includes(qFecha) ||
       (inf.oficial||"").toLowerCase().includes(q) ||
       (inf.ayudante||"").toLowerCase().includes(q);
   });
