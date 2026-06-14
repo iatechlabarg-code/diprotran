@@ -1303,6 +1303,15 @@ function villalbaAusente() {
 // Alias semántico para claridad en el código
 const oficialTitularAusente = villalbaAusente;
 
+// Detectar si el Ayudante de Guardia titular está ausente
+function _ayudanteTitularAusente() {
+  const palabras = _norm(PRIORIDAD_AYUDANTE[0]).split(" ");
+  const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
+  const ef = todos.find(e => palabras.every(p => _norm(e.nombre).includes(p)));
+  if (!ef) return false;
+  return _efEstaAusente(ef.id);
+}
+
 // Obtener función efectiva de un efectivo (considera ascenso automático)
 function getFuncionEfectiva(ef) {
   const d = state.personal[ef.id] || {};
@@ -1321,7 +1330,6 @@ function getFuncionEfectiva(ef) {
 
   // Si el Oficial titular está ausente, el siguiente en PRIORIDAD_OFICIAL (no ausente) asciende
   if (villalbaAusente() && !_efEstaAusente(ef.id)) {
-    // Buscar quién debería ser el suplente según cadena de prioridad (saltando al titular ausente)
     const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
     for (let i = 1; i < PRIORIDAD_OFICIAL.length; i++) {
       const palabras = _norm(PRIORIDAD_OFICIAL[i]).split(" ");
@@ -1332,6 +1340,32 @@ function getFuncionEfectiva(ef) {
       }
     }
   }
+
+  // Si el Ayudante titular está ausente, el siguiente en PRIORIDAD_AYUDANTE asciende
+  if (_ayudanteTitularAusente() && !_efEstaAusente(ef.id) && func !== "of_servicio") {
+    const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
+    for (let i = 1; i < PRIORIDAD_AYUDANTE.length; i++) {
+      const palabras = _norm(PRIORIDAD_AYUDANTE[i]).split(" ");
+      const candidato = todos.find(e => palabras.every(p => _norm(e.nombre).includes(p)));
+      if (candidato && candidato.id === ef.id && !_efEstaAusente(candidato.id)) {
+        func = "ayudante";
+        break;
+      }
+    }
+  }
+
+  // Asignar "ayudante" al titular si no está ausente y no tiene otro rol asignado hoy
+  const _palAyTit = _norm(PRIORIDAD_AYUDANTE[0]).split(" ");
+  if (_palAyTit.every(p => _norm(ef.nombre).includes(p)) && !_efEstaAusente(ef.id) && func !== "of_servicio") {
+    func = "ayudante";
+  }
+
+  // Asignar "of_servicio" al titular si no está ausente
+  const _palOfTit = _norm(PRIORIDAD_OFICIAL[0]).split(" ");
+  if (_palOfTit.every(p => _norm(ef.nombre).includes(p)) && !_efEstaAusente(ef.id)) {
+    func = "of_servicio";
+  }
+
   return func;
 }
 
