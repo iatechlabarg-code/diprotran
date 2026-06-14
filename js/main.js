@@ -1070,7 +1070,9 @@ function poblarSelectAyudante() {
   // Agregar todos los efectivos del personal base
   const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
   todos.forEach(ef => {
-    if (ef.funcion_base === "of_servicio") return; // El Oficial de Servicio titular no actúa como ayudante
+    // El Oficial de Servicio titular no actúa como ayudante — buscar por nombre
+    const _palOf = _norm(PRIORIDAD_OFICIAL[0]).split(" ");
+    if (_palOf.every(p => _norm(ef.nombre).includes(p))) return;
     const opt = document.createElement("option");
     opt.value = `${ef.jerarquia} ${ef.nombre}`;
     opt.textContent = `${ef.jerarquia} ${ef.nombre}`;
@@ -1142,8 +1144,9 @@ function aplicarDefaultsGuardia() {
     }
     if (!asignado) {
       // Fallback: alguien con of_servicio asignado explícitamente hoy
+      const _palAy2 = _norm(PRIORIDAD_OFICIAL[1] || "").split(" ");
       const suplente = todos.find(e => state.personal[e.id]?.funcion === "of_servicio")
-                    || todos.find(e => e.funcion_base === "enc_tercio" && !_efEstaAusente(e.id));
+                    || todos.find(e => _palAy2.every(p => _norm(e.nombre).includes(p)) && !_efEstaAusente(e.id));
       if (suplente) state.oficial = `${suplente.jerarquia}. ${suplente.nombre}`;
     }
     const selOf = document.getElementById("inpOficial");
@@ -1289,11 +1292,12 @@ function validarRolUnico(efId, rolId) {
 
 // ── Ordenamiento del personal por rol y antigüedad ─────────────
 // Detectar si el Oficial de Servicio titular está ausente (JPK/vacaciones)
-// Genérico: busca por funcion_base='of_servicio' en PERSONAL_BASE, no por ID hardcodeado
+// Busca al titular por NOMBRE (PRIORIDAD_OFICIAL[0]) porque Supabase puede sobreescribir funcion_base
 function villalbaAusente() {
-  const ef = PERSONAL_BASE.find(p => p.funcion_base === "of_servicio");
+  const palabras = _norm(PRIORIDAD_OFICIAL[0]).split(" ");
+  const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
+  const ef = todos.find(e => palabras.every(p => _norm(e.nombre).includes(p)));
   if (!ef) return false;
-  // Usar _efEstaAusente que cubre TODOS los estados de ausencia (JPK, RMH, licencia, franco, etc.)
   return _efEstaAusente(ef.id);
 }
 // Alias semántico para claridad en el código
@@ -2134,9 +2138,12 @@ function renderDashboard() {
     const ausente = villalbaAusente();
     alertEl.style.display = ausente ? "block" : "none";
     if (ausente) {
-      // Texto dinámico: buscar titular y suplente por funcion_base
-      const oficial  = PERSONAL_BASE.find(p => p.funcion_base === "of_servicio");
-      const suplente = PERSONAL_BASE.find(p => p.funcion_base === "enc_tercio");
+      // Texto dinámico: buscar titular y suplente por nombre (PRIORIDAD_OFICIAL)
+      const _pOf = _norm(PRIORIDAD_OFICIAL[0]).split(" ");
+      const _pSu = _norm(PRIORIDAD_OFICIAL[1]||"").split(" ");
+      const _allP = [...PERSONAL_BASE, ...(state.personalExtra||[])];
+      const oficial  = _allP.find(e => _pOf.every(p => _norm(e.nombre).includes(p)));
+      const suplente = _allP.find(e => _pSu.every(p => _norm(e.nombre).includes(p)));
       const nomOficial  = oficial  ? `${oficial.jerarquia}. ${oficial.nombre.split(" ")[0]}`  : "Oficial";
       const nomSuplente = suplente ? `${suplente.jerarquia} ${suplente.nombre}` : "siguiente en rango";
       const txtEl = document.getElementById("ascensoAlertTxt");
