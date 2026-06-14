@@ -112,6 +112,12 @@ const VAC_KEY = "dpt_vac"; // clave independiente del turno — vacaciones persi
 const DEFAULT_OFICIAL_NOMBRE  = "VILLALBA LUCAS";
 const DEFAULT_AYUDANTE_NOMBRE = "CABRAL BLANCO CRISTIAN";
 
+// ── Cadena de prioridad para asignación automática ──
+const PRIORIDAD_OFICIAL  = ['VILLALBA LUCAS', 'AYALA JOSE'];
+const PRIORIDAD_AYUDANTE = ['CABRAL BLANCO CRISTIAN', 'FINK NICOLAS'];
+const FUNCIONES_DIA_VALIDAS = ['Oficial de Servicio', 'Ayudante de Guardia', 'Encargado de Tercio', 'Chofer / Disponible'];
+const ESTADOS_AUSENCIA = ['JPK', 'RMH', 'Licencia Especial', 'Permiso', 'Comision'];
+
 // → Ver js/offline.js (COLA_KEY, FOTO_COLA_KEY, procesarColaOffline, procesarColaFotos, ...)
 async function guardarEnNube() {
   if (!supaClient) { showToast("⚠️ Sin conexión a la nube"); return; }
@@ -145,7 +151,7 @@ async function guardarEnNube() {
     // Sincronizar perfiles del personal (permanentes)
     await sincronizarPersonal();
     setNubeStatus("online", "Guardado ✓");
-    showToast("☁️ Informe guardado en la nube");
+    showToast("Guardado en la nube", "success");
     // Si había items en cola, intentar procesarlos ahora que hay conexión
     if (getColaOffline().length > 0) procesarColaOffline();
   } catch(e) {
@@ -156,7 +162,7 @@ async function guardarEnNube() {
       showToast("⏳ Sin red — guardado en cola local");
     } else {
       setNubeStatus("error", "Error al guardar");
-      showToast("❌ " + (e.message||"Error al guardar"));
+      showToast("Error al guardar: " + (e.message||"Error desconocido"), "error");
       dbgW("guardarEnNube error:", e);
     }
   } finally {
@@ -393,23 +399,19 @@ function aplicarRestriccionesRol() {
   const nav6 = document.getElementById("nav6");
   if (nav6) nav6.style.display = esJefe ? "" : "none";
 
-  // Indicador visual del rol en la barra superior
-  let rolBadge = document.getElementById("rolBadge");
-  if (!rolBadge) {
-    rolBadge = document.createElement("span");
-    rolBadge.id = "rolBadge";
-    rolBadge.style.cssText = "font-size:10px;font-weight:700;font-family:var(--font-display);padding:2px 8px;border-radius:10px;margin-left:6px";
-    const nubeStatus = document.getElementById("nubeStatus");
-    if (nubeStatus) nubeStatus.appendChild(rolBadge);
-  }
-  if (esJefe) {
-    rolBadge.textContent = "JEFE";
-    rolBadge.style.background = "var(--ba-teal4)";
-    rolBadge.style.color = "var(--blue1)";
-  } else {
-    rolBadge.textContent = "OFICIAL";
-    rolBadge.style.background = "var(--blue5)";
-    rolBadge.style.color = "var(--blue2)";
+  // Indicador visual de usuario y rol en la barra superior
+  const userBadge = document.getElementById("userBadge");
+  if (userBadge) {
+    const loginUser = currentUserEmail ? currentUserEmail.split("@")[0].toUpperCase() : "";
+    // Buscar nombre completo en PERSONAL_BASE por apellido (el usuario de login es el apellido)
+    const efMatch = (typeof PERSONAL_BASE !== "undefined") &&
+      PERSONAL_BASE.find(p => p.nombre && p.nombre.toUpperCase().startsWith(loginUser));
+    const nombreCompleto = efMatch ? efMatch.nombre.toUpperCase() : loginUser;
+    const rolLabel = esJefe ? "Jefe" : "Oficial";
+    userBadge.textContent = nombreCompleto ? `${nombreCompleto} · ${rolLabel}` : rolLabel;
+    userBadge.classList.remove("hidden");
+    userBadge.style.background = esJefe ? "var(--ba-teal4)" : "var(--blue5)";
+    userBadge.style.color = esJefe ? "var(--blue1)" : "var(--blue2)";
   }
 }
 
@@ -884,15 +886,24 @@ async function initApp() {
   loadEliminados();  // cargar bajas persistentes ANTES de loadStorage
   loadStorage();     // si hay datos de hoy, los carga; si son de ayer, los ignora
 
-  // ── Cargar flota desde Supabase — timeout 6 s ────────────────
+  // ── Cargar flota desde Supabase — timeout 15 s + 1 reintento ────────────────
   setNubeStatus("saving", "Cargando flota...");
   let flotaOffline = false;
   try {
-    const withTimeout6 = p => Promise.race([p, new Promise((_,rej) => setTimeout(()=>rej(new Error("timeout")),6000))]);
-    await withTimeout6(cargarFlotaDesdeNube());
+    const withTimeout15 = p => Promise.race([p, new Promise((_,rej) => setTimeout(()=>rej(new Error("timeout")),15000))]);
+    await withTimeout15(cargarFlotaDesdeNube());
   } catch(e) {
-    console.error("[DI.PRO.TRAN] cargarFlota timeout/error:", e?.message || e);
-    flotaOffline = true;
+    console.warn("[DI.PRO.TRAN] cargarFlota primer intento falló:", e?.message || e);
+    // Reintento con 2s de espera
+    try {
+      await new Promise(r => setTimeout(r, 2000));
+      setNubeStatus("saving", "Reintentando flota...");
+      const withTimeout15b = p => Promise.race([p, new Promise((_,rej) => setTimeout(()=>rej(new Error("timeout")),15000))]);
+      await withTimeout15b(cargarFlotaDesdeNube());
+    } catch(e2) {
+      console.error("[DI.PRO.TRAN] cargarFlota timeout/error (2do intento):", e2?.message || e2);
+      flotaOffline = true;
+    }
   }
 
   buildSecNav();
@@ -904,9 +915,9 @@ async function initApp() {
   poblarSelectAyudante();
   poblarSelectJerarquias();
   renderPersonal("");
-  // Cargar perfiles de personal desde la nube — timeout 8 s
+  // Cargar perfiles de personal desde la nube — timeout 15 s + 1 reintento
   setNubeStatus("saving", "Cargando personal...");
-  const TIMEOUT_MS = 8000;
+  const TIMEOUT_MS = 15000;
   const withTimeout = (promise, ms) =>
     Promise.race([promise, new Promise((_,rej) => setTimeout(()=>rej(new Error("timeout")), ms))]);
 
@@ -914,14 +925,24 @@ async function initApp() {
   try {
     await withTimeout(cargarPersonalDesdeNube(), TIMEOUT_MS);
   } catch(e) {
-    console.error("[DI.PRO.TRAN] cargarPersonal timeout/error:", e?.message || e);
-    personalOffline = true;
+    console.warn("[DI.PRO.TRAN] cargarPersonal primer intento falló:", e?.message || e);
+    // Reintento con 2s de espera
+    try {
+      await new Promise(r => setTimeout(r, 2000));
+      setNubeStatus("saving", "Reintentando personal...");
+      cargarPersonalDesdeNube._cargado = false; // permitir re-carga
+      await withTimeout(cargarPersonalDesdeNube(), TIMEOUT_MS);
+    } catch(e2) {
+      console.error("[DI.PRO.TRAN] cargarPersonal timeout/error (2do intento):", e2?.message || e2);
+      personalOffline = true;
+    }
   }
   poblarSelectOficial();
   poblarSelectAyudante();
-  aplicarDefaultsGuardia(); // auto-completar Villalba / Cabral si están vacíos
 
   // ── Restaurar vacaciones vigentes desde perfiles de Supabase ──────────────
+  // DEBE ejecutarse ANTES de aplicarDefaultsGuardia() para que los titulares
+  // ausentes (JPK/vacaciones) no se seleccionen como default.
   // state.personal arranca vacío cada día, pero los perfiles de PERSONAL_BASE
   // tienen vacHasta (sincronizado por saveEfectivo). Si la fecha sigue vigente,
   // restaurar la función para que el calendario, el dashboard y el modal
@@ -937,6 +958,8 @@ async function initApp() {
       }
     }
   });
+
+  aplicarDefaultsGuardia(); // auto-completar titular o suplente si están vacíos
 
   renderPersonal("");
   // NO se carga el último informe automáticamente —
@@ -956,7 +979,7 @@ async function initApp() {
   renderGuardiaBanner();
 }
 
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
   initSupabase();
   // Guard: si el SDK no cargó, supaClient es null y llamar .auth crashea silenciosamente
   if (!supaClient) {
@@ -964,8 +987,32 @@ window.addEventListener("load", () => {
     // La pantalla de login ya está visible por defecto; el usuario verá el status "SDK no disponible"
     return;
   }
-  // Escuchar cambios de sesión de Supabase Auth
+
+  // ── Carga inicial: usar getSession() para obtener una sesión validada ──────
+  // En page reload el token almacenado puede estar expirado; getSession() espera
+  // a que Supabase complete el refresh antes de devolver la sesión.
+  try {
+    const { data: { session } } = await supaClient.auth.getSession();
+    if (session) {
+      currentUserEmail = session.user.email || "";
+      currentUserRol   = session.user.user_metadata?.rol || "oficial";
+      aplicarRestriccionesRol();
+      document.getElementById("loginScreen").style.display = "none";
+      if (!appInited) {
+        appInited = true;
+        // Pequeño delay para asegurar que el token refreshed esté disponible
+        await new Promise(r => setTimeout(r, 300));
+        await initApp();
+      }
+    }
+  } catch(e) {
+    console.warn("[DI.PRO.TRAN] getSession() falló en carga inicial:", e);
+  }
+
+  // Escuchar cambios de sesión posteriores (login, logout, token refresh)
+  // Saltear INITIAL_SESSION ya que getSession() lo maneja arriba
   supaClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === "INITIAL_SESSION") return; // ya manejado por getSession
     if (session) {
       // Leer rol y email del usuario autenticado
       currentUserEmail = session.user.email || "";
@@ -986,6 +1033,27 @@ window.addEventListener("load", () => {
       document.getElementById("loginScreen").style.display = "";
     }
   });
+});
+
+// ── Reconexión automática al recuperar red ──────────────────────
+window.addEventListener('online', async () => {
+  if (appInited && supaClient) {
+    setNubeStatus("saving", "Reconectando...");
+    try {
+      await cargarFlotaDesdeNube();
+      await cargarPersonalDesdeNube();
+      setNubeStatus("online", "Conectado");
+      showToast("Reconectado", "success");
+      await procesarColaOffline();
+    } catch(e) {
+      console.error("[DI.PRO.TRAN] Error al reconectar:", e);
+      setNubeStatus("error", "Error al reconectar");
+    }
+  }
+});
+window.addEventListener('offline', () => {
+  setNubeStatus("error", "Sin conexión");
+  showToast("Modo offline activado", "warning");
 });
 
 // ── Ayudante de guardia: desplegable dinámico ──────────────────
@@ -1035,38 +1103,63 @@ function poblarSelectAyudante() {
 const _AUSENTES_SET = new Set(["vacaciones","licencia","lic_especial","baja_med","desafect","inactividad","franco","disponib","act_limit"]);
 
 function _efEstaAusente(efId) {
-  const func = state.personal[efId]?.funcion;
-  return func && _AUSENTES_SET.has(func);
+  const d = state.personal[efId] || {};
+  const func = d.funcion;
+  if (func && _AUSENTES_SET.has(func)) return true;
+  // También chequear vacHasta vigente en state o perfil base (como villalbaAusente)
+  const hoy = new Date().toISOString().split("T")[0];
+  const ef  = PERSONAL_BASE.find(p => p.id === efId);
+  const vacHasta = d.vacHasta || ef?.vacHasta || "";
+  return vacHasta && vacHasta >= hoy;
+}
+
+function _estaAusenteParaPrioridad(ef) {
+  // Chequear contra ESTADOS_AUSENCIA y también contra _AUSENTES_SET
+  if (_efEstaAusente(ef.id)) return true;
+  const d = state.personal[ef.id] || {};
+  const func = d.funcion || ef.funcion_base || "";
+  const funcLabel = FUNCIONES.find(f => f.id === func)?.label || "";
+  return ESTADOS_AUSENCIA.some(ea => funcLabel.toUpperCase().includes(ea.toUpperCase()));
 }
 
 function aplicarDefaultsGuardia() {
   const todos = [...PERSONAL_BASE, ...(state.personalExtra||[])];
 
   if (!state.oficial) {
-    // Buscar el titular por nombre
-    const palabrasOf = DEFAULT_OFICIAL_NOMBRE.toUpperCase().split(" ");
-    const titularOf  = todos.find(e => palabrasOf.every(p => e.nombre.toUpperCase().includes(p)));
-
-    if (titularOf && !_efEstaAusente(titularOf.id)) {
-      // Titular disponible → usarlo
-      state.oficial = `${titularOf.jerarquia}. ${titularOf.nombre}`;
-    } else {
-      // Titular ausente o no encontrado → buscar quién tiene of_servicio asignado hoy
-      const suplente = todos.find(e => state.personal[e.id]?.funcion === "of_servicio");
+    // Recorrer cadena de prioridad para Oficial
+    let asignado = false;
+    for (const nombrePrioridad of PRIORIDAD_OFICIAL) {
+      const palabras = nombrePrioridad.toUpperCase().split(" ");
+      const candidato = todos.find(e => palabras.every(p => e.nombre.toUpperCase().includes(p)));
+      if (candidato && !_estaAusenteParaPrioridad(candidato)) {
+        state.oficial = `${candidato.jerarquia}. ${candidato.nombre}`;
+        asignado = true;
+        break;
+      }
+    }
+    if (!asignado) {
+      // Fallback: alguien con of_servicio asignado explícitamente hoy
+      const suplente = todos.find(e => state.personal[e.id]?.funcion === "of_servicio")
+                    || todos.find(e => e.funcion_base === "enc_tercio" && !_efEstaAusente(e.id));
       if (suplente) state.oficial = `${suplente.jerarquia}. ${suplente.nombre}`;
-      // Si nadie tiene el rol, dejar vacío — el usuario deberá elegir
     }
     const selOf = document.getElementById("inpOficial");
     if (selOf && state.oficial) selOf.value = state.oficial;
   }
 
   if (!state.ayudante) {
-    const palabrasAy = DEFAULT_AYUDANTE_NOMBRE.toUpperCase().split(" ");
-    const titularAy  = todos.find(e => palabrasAy.every(p => e.nombre.toUpperCase().includes(p)));
-
-    if (titularAy && !_efEstaAusente(titularAy.id)) {
-      state.ayudante = `${titularAy.jerarquia} ${titularAy.nombre}`;
-    } else {
+    // Recorrer cadena de prioridad para Ayudante
+    let asignado = false;
+    for (const nombrePrioridad of PRIORIDAD_AYUDANTE) {
+      const palabras = nombrePrioridad.toUpperCase().split(" ");
+      const candidato = todos.find(e => palabras.every(p => e.nombre.toUpperCase().includes(p)));
+      if (candidato && !_estaAusenteParaPrioridad(candidato)) {
+        state.ayudante = `${candidato.jerarquia} ${candidato.nombre}`;
+        asignado = true;
+        break;
+      }
+    }
+    if (!asignado) {
       const suplente = todos.find(e => state.personal[e.id]?.funcion === "ayudante");
       if (suplente) state.ayudante = `${suplente.jerarquia} ${suplente.nombre}`;
     }
@@ -1229,6 +1322,29 @@ function getFuncionEfectiva(ef) {
   return func;
 }
 
+// Obtener la función del día para el PDF (basada en quién es oficial/ayudante seleccionado)
+function getFuncionDia(ef) {
+  const nombreCompleto = `${ef.jerarquia}. ${ef.nombre}`;
+  const nombreSinPunto = `${ef.jerarquia} ${ef.nombre}`;
+  // Chequear si es el Oficial de Servicio seleccionado
+  if (state.oficial && (state.oficial === nombreCompleto || state.oficial === nombreSinPunto)) {
+    return "Oficial de Servicio";
+  }
+  // Chequear si es el Ayudante de Guardia seleccionado
+  if (state.ayudante && (state.ayudante === nombreCompleto || state.ayudante === nombreSinPunto)) {
+    return "Ayudante de Guardia";
+  }
+  // Chequear si tiene enc_tercio asignado
+  const d = state.personal[ef.id] || {};
+  const func = d.funcion || ef.funcion_base || "chofer";
+  if (func === "enc_tercio") return "Encargado de Tercio";
+  // Para ausencias, devolver la etiqueta correspondiente
+  const funcDef = FUNCIONES.find(f => f.id === func);
+  if (funcDef && funcDef.grupo !== "operativo") return funcDef.label;
+  // Default: Chofer / Disponible
+  return "Chofer / Disponible";
+}
+
 function ordenarPersonal(lista) {
   const orden = { of_servicio:0, ayudante:1, enc_tercio:2, chofer:3 };
   return lista.slice().sort((a, b) => {
@@ -1340,6 +1456,14 @@ function goTab(n) {
   if (n === 6 && currentUserRol !== "jefe") {
     showToast("⛔ Acceso restringido — solo Jefes");
     return;
+  }
+  // Validar que el oficial esté seleccionado antes de ir a Móviles o Exportar
+  if (n === 2 || n === 3) {
+    const oficialSelect = document.getElementById("inpOficial");
+    if (!oficialSelect || oficialSelect.value === "" || oficialSelect.value === "— Seleccionar —") {
+      showToast("Selecciona un Oficial de Servicio antes de continuar", "warning");
+      return;
+    }
   }
   // Sincronizar encabezado sin bloquear navegación
   syncStep1();
@@ -1905,6 +2029,8 @@ async function compartirActa() {
 }
 
 function confirmarNuevaGuardia() {
+  if (!confirm("¿Estas seguro de iniciar una nueva guardia? Se perderan los datos del turno actual.")) return;
+  if (!confirm("CONFIRMACION FINAL: Esta accion es irreversible. Continuar?")) return;
   document.getElementById("actaModal").classList.remove("open");
   // Remover extras de SECTIONS
   SECTIONS.forEach(sec => {
@@ -1950,6 +2076,7 @@ function eliminarMovilActual() {
   const v = sec.vehicles.find(v2 => v2.ro === ro);
   const label = `${sec.type === "no_ident" ? "Dom." : "RO"} ${ro}`;
   if (!confirm(`¿Dar de baja "${label}" de la flota?\n\nEl móvil dejará de aparecer en los relevamientos.\nPodés restaurarlo desde Flota Completa → Dados de baja.`)) return;
+  if (!confirm("CONFIRMACION FINAL: Esta accion es irreversible. Continuar?")) return;
   if (!state.eliminados) state.eliminados = [];
   if (!state.eliminados.includes(currentKey)) {
     state.eliminados.push(currentKey);
@@ -2427,10 +2554,25 @@ function addNewRo(secId) {
   setTimeout(() => openModal(secId, newV), 150);
 }
 
-function showToast(msg){
-  const t=document.getElementById("toast");
-  t.textContent=msg; t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"),1900);
+function showToast(mensaje, tipo = "info", duracion = 3000) {
+  // Compatibilidad: si se llama con un solo string, usar el toast básico del DOM si existe
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.style.cssText = "position:fixed;top:80px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  const colors = { info: "#1565c0", success: "#2e7d32", error: "#c62828", warning: "#e65100" };
+  toast.style.cssText = `background:${colors[tipo]||colors.info};color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3);opacity:0;transition:opacity 0.3s;max-width:350px;`;
+  toast.textContent = mensaje;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.style.opacity = "1");
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 300);
+  }, duracion);
 }
 
 // ════════════════════════════════════════════
@@ -2474,6 +2616,151 @@ async function openCompModal() {
 
 function closeCompModal() {
   document.getElementById("compModal").classList.remove("open");
+}
+
+function cargarCompInforme(id) {
+  if (!id) return;
+  const inf = _compInformes.find(i => i.id === id);
+  if (!inf) return;
+
+  const [y,m,d] = (inf.fecha||"").split("-");
+  const [cy,cm,cd] = (state.fecha||"").split("-");
+  document.getElementById("compMeta").textContent =
+    `${cd}/${cm}/${cy} vs ${d}/${m}/${y}`;
+
+  const vehiclesA = state.vehicles || {};
+  const vehiclesB = inf.vehicles   || {};
+
+  const allKeys = new Set([...Object.keys(vehiclesA), ...Object.keys(vehiclesB)]);
+
+  const diffsBySec = {};
+  const tagClass = v => v==="OK"?"comp-tag-ok":v==="NO"?"comp-tag-no":v==="Roto"?"comp-tag-roto":v==="N/A"?"comp-tag-na":"comp-tag-nd";
+
+  let totalDiffs = 0, newIssues = 0, resolved = 0;
+
+  allKeys.forEach(key => {
+    const dA = vehiclesA[key] || {};
+    const dB = vehiclesB[key] || {};
+    const [secId] = key.split("_");
+    const sec = SECTIONS.find(s => s.id === secId);
+    const secLabel = sec?.label || secId;
+
+    // Comparar campo a campo (fix: FIELDS por tipo, no por secId)
+    const fields = FIELDS[sec?.type] || [];
+    const diffs = [];
+
+    fields.forEach(field => {
+      const valA = dA[field.id];
+      const valB = dB[field.id];
+      if (valA === valB) return;
+      if (!valA && !valB) return;
+      diffs.push({ field: field.label, valA: valA||"—", valB: valB||"—" });
+    });
+
+    // Observaciones (fix: era 'novedad', debe ser 'obs')
+    const novA = (dA.obs||"").trim();
+    const novB = (dB.obs||"").trim();
+    if (novA !== novB && (novA || novB)) {
+      diffs.push({ field:"Observaciones", valA: novA||"—", valB: novB||"—" });
+    }
+
+    if (!diffs.length) return;
+
+    totalDiffs += diffs.length;
+    diffs.forEach(d => {
+      if (d.valB === "—" || d.valB === "OK") newIssues++;
+      if (d.valA === "—" || d.valA === "OK") resolved++;
+    });
+
+    if (!diffsBySec[secLabel]) diffsBySec[secLabel] = [];
+    diffsBySec[secLabel].push({ ro: key.slice(secId.length + 1), diffs });
+  });
+
+  if (!totalDiffs) {
+    document.getElementById("compResult").innerHTML =
+      '<div class="comp-no-diff">✅ Sin diferencias — ambos informes son idénticos</div>';
+    return;
+  }
+
+  let html = `<div class="comp-summary">
+    <div class="comp-sum-box"><div class="comp-sum-num" style="color:var(--no)">${totalDiffs}</div><div class="comp-sum-lbl">Diferencias</div></div>
+    <div class="comp-sum-box"><div class="comp-sum-num" style="color:var(--warn)">${newIssues}</div><div class="comp-sum-lbl">Nuevas issues</div></div>
+    <div class="comp-sum-box"><div class="comp-sum-num" style="color:var(--ok)">${resolved}</div><div class="comp-sum-lbl">Resueltas</div></div>
+  </div>`;
+
+  Object.entries(diffsBySec).forEach(([secLabel, vehDiffs]) => {
+    html += `<div class="comp-section">
+      <div class="comp-sec-title">${escapeHTML(secLabel)}</div>`;
+    vehDiffs.forEach(({ro, diffs}) => {
+      diffs.forEach(({field, valA, valB}) => {
+        html += `<div class="comp-row">
+          <span class="comp-ro">RO ${escapeHTML(ro)}</span>
+          <span class="comp-diff">
+            <span style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px">${escapeHTML(field)}</span>
+            <span class="comp-tag ${tagClass(valB)}">${escapeHTML(valB)}</span>
+            <span class="comp-arrow"> → </span>
+            <span class="comp-tag ${tagClass(valA)}">${escapeHTML(valA)}</span>
+          </span>
+        </div>`;
+      });
+    });
+    html += `</div>`;
+  });
+
+  document.getElementById("compResult").innerHTML = html;
+}
+
+// ── MODO OSCURO ──────────────────────────────────────────────────────────────
+function applyDarkMode(dark) {
+  // Tailwind usa darkMode:'class' → necesita clase 'dark' en <html>
+  document.documentElement.classList.toggle("dark", dark);
+  // Mantener data-theme para compatibilidad con CSS custom properties
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  const btn = document.getElementById("btnDark");
+  if (btn) btn.textContent = dark ? "☀️" : "🌙";
+}
+
+function toggleDarkMode() {
+  const isDark = document.documentElement.classList.contains("dark");
+  const next = !isDark;
+  localStorage.setItem("dpt_dark", next ? "1" : "0");
+  applyDarkMode(next);
+}
+
+// Aplicar preferencia guardada (o del sistema) al cargar
+(function() {
+  const saved = localStorage.getItem("dpt_dark");
+  if (saved !== null) {
+    applyDarkMode(saved === "1");
+  } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    applyDarkMode(true);
+  }
+})();
+
+// ════════════════════════════════════════════
+//  TAB ADMIN — GESTIÓN DE FLOTA
+// ════════════════════════════════════════════
+// → Ver js/admin.js (switchAdminTab, renderAdminPersonal, openEditarEfAdmin, darDeBajaEfAdmin, renderAdminFlota, toggleAdminSec, guardarNuevoVehiculo, eliminarVehiculoAdmin, guardarNuevaSeccion)
+// ════════════════════════════════════════════
+//  FOTOS DE DAÑO EN VEHÍCULOS
+// ════════════════════════════════════════════
+// → Ver js/fotos.js (comprimirImagen, blobToDataUrl, actualizarFotoWrap, uploadFotoMovil, eliminarFotoMovil, verFotoNovedad)
+// ── PWA — Registro del Service Worker ─────────────────────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      reg.addEventListener("updatefound", () => {
+        const newSW = reg.installing;
+        if (!newSW) return;
+        newSW.addEventListener("statechange", () => {
+          if (newSW.state === "installed" && navigator.serviceWorker.controller) {
+            showToast("Nueva versión disponible — recargando...", "info");
+            setTimeout(() => location.reload(), 800);
+          }
+        });
+      });
+    });
+  });
 }
 
 function cargarCompInforme(id) {
