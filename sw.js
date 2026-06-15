@@ -2,7 +2,7 @@
 // Network-first para app files (siempre sirve lo último cuando hay red)
 // Cache-first solo para assets estáticos que no cambian (logo, manifest)
 // ── Cambiar APP_VERSION con cada deploy para forzar actualización ──
-const APP_VERSION  = "20260613-1";
+const APP_VERSION  = "20260615-1";
 const CACHE_NAME   = "diprotran-" + APP_VERSION;
 
 // Assets verdaderamente estáticos — cache-first está bien
@@ -10,6 +10,8 @@ const STATIC_ASSETS = [
   "./logo_fondo_blanco.png",
   "./icon-192.png",
   "./icon-512.png",
+  "./favicon.ico",
+  "./apple-touch-icon.png",
   "./manifest.json",
 ];
 
@@ -46,6 +48,7 @@ self.addEventListener("fetch", event => {
   if (
     url.hostname.includes("supabase.co") ||
     url.hostname.includes("cdnjs.cloudflare.com") ||
+    url.hostname.includes("cdn.tailwindcss.com") ||
     url.hostname.includes("cdn.jsdelivr.net") ||
     url.hostname.includes("fonts.googleapis.com") ||
     url.hostname.includes("fonts.gstatic.com")
@@ -56,7 +59,7 @@ self.addEventListener("fetch", event => {
 
   // Assets estáticos (logo, manifest) → cache-first
   const path = url.pathname;
-  if (path.endsWith(".png") || path.endsWith("manifest.json")) {
+  if (path.endsWith(".png") || path.endsWith(".ico") || path.endsWith("manifest.json")) {
     event.respondWith(
       caches.match(event.request).then(cached => cached || fetch(event.request))
     );

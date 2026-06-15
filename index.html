@@ -11,36 +11,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DIPROTRAN">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!-- Manual de Marca Buenos Aires: Encode Sans (principal) + Roboto (secundaria) -->
 <link href="https://fonts.googleapis.com/css2?family=Encode+Sans:wght@400;500;600;700;800;900&family=Encode+Sans+Condensed:wght@400;600;700;900&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
-<!-- Tailwind CSS CDN -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        'pba-blue':  '#003580',
-        'pba-blue2': '#0050b3',
-        'pba-teal':  '#00aec3',
-        'pba-teal2': '#cae7ea',
-        'pba-grey':  '#838383',
-      },
-      fontFamily: {
-        display: ["'Encode Sans Condensed'", "'Encode Sans'", 'sans-serif'],
-        body:    ["'Roboto'", 'sans-serif'],
-        strong:  ["'Encode Sans'", 'sans-serif'],
-      }
-    }
-  }
-}
-</script>
+<!-- Tailwind CSS (compilado para producción) -->
+<link rel="stylesheet" href="tailwind.min.css">
 </head>
 <body>
 
