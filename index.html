@@ -159,22 +159,22 @@ tailwind.config = {
     </label>
     <input type="date" id="inpFecha" onchange="state.fecha=this.value;saveStorage();renderGuardiaBanner()" class="w-full" aria-label="Fecha del informe">
 
-    <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Oficial de Servicio</label>
+    <label for="inpOficial" class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Oficial de Servicio</label>
     <select id="inpOficial" onchange="state.oficial=this.value;saveStorage()" class="w-full">
       <option value="">— Seleccionar —</option>
     </select>
 
-    <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Ayudante de Guardia</label>
+    <label for="inpAyudante" class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Ayudante de Guardia</label>
     <select id="inpAyudante" onchange="onAyudanteChange(this)" class="w-full">
       <option value="">— Seleccionar —</option>
     </select>
     <div id="nuevoAyudanteForm" style="display:none;margin-top:10px;background:var(--off);border-radius:var(--r);padding:12px;border:1px solid var(--border)">
       <div class="text-[11px] font-bold text-pba-blue font-strong uppercase tracking-wide mb-2.5">Agregar nuevo ayudante</div>
-      <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 font-strong" style="margin-top:0">Jerarquía</label>
+      <label for="nuevoAyJerarquia" class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 font-strong" style="margin-top:0">Jerarquía</label>
       <select id="nuevoAyJerarquia" class="w-full">
         <option value="">— Seleccionar —</option>
       </select>
-      <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Escalafón</label>
+      <label for="nuevoAyEscalafon" class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-3 font-strong">Escalafón</label>
       <select id="nuevoAyEscalafon" class="w-full">
         <option value="">— Seleccionar —</option>
       </select>
@@ -475,7 +475,7 @@ tailwind.config = {
       <button class="modal-x bg-gray-100 border border-gray-200 text-gray-700 rounded-full w-8 h-8 text-lg cursor-pointer flex items-center justify-center" aria-label="Cerrar" onclick="closeCompModal()">✕</button>
     </div>
     <div class="px-3.5 py-2.5 border-b border-gray-200 bg-gray-50">
-      <div class="text-[11px] font-bold text-pba-grey font-display uppercase tracking-wide mb-1.5">Comparar con:</div>
+      <label for="compSelect" class="text-[11px] font-bold text-pba-grey font-display uppercase tracking-wide mb-1.5 block">Comparar con:</label>
       <select id="compSelect" onchange="cargarCompInforme(this.value)" class="w-full" style="font-size:14px;padding:9px 13px;margin-bottom:0">
         <option value="">— Seleccioná un informe —</option>
       </select>
@@ -514,7 +514,7 @@ tailwind.config = {
           <input type="text" id="newSecId" placeholder="secNueva" class="w-full mb-2" aria-label="ID interno de la nueva sección">
           <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-2 font-strong">Nombre visible</label>
           <input type="text" id="newSecLabel" placeholder="Nueva Sección" class="w-full mb-2" aria-label="Nombre visible de la nueva sección">
-          <label class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-2 font-strong">Tipo de vehículo</label>
+          <label for="newSecType" class="lbl block text-[11px] text-pba-grey font-bold uppercase tracking-wider mb-1 mt-2 font-strong">Tipo de vehículo</label>
           <select id="newSecType" class="w-full mb-3">
             <option value="movil_std">Móvil estándar</option>
             <option value="iveco_cursor">IVECO Cursor</option>
@@ -580,7 +580,7 @@ tailwind.config = {
       <button class="modal-x bg-gray-100 border border-gray-200 text-gray-700 rounded-full w-8 h-8 text-lg cursor-pointer flex items-center justify-center" aria-label="Cerrar" onclick="document.getElementById('actaModal').classList.remove('open')">✕</button>
     </div>
     <div id="actaResumen" class="mb-3"></div>
-    <textarea id="actaTexto" rows="10" style="font-family:monospace;font-size:12px;background:var(--off);border-color:var(--border);resize:none;width:100%;padding:10px 12px;border-radius:var(--r);color:var(--text)" readonly></textarea>
+    <textarea id="actaTexto" rows="10" aria-label="Texto del acta de pasaje" style="font-family:monospace;font-size:12px;background:var(--off);border-color:var(--border);resize:none;width:100%;padding:10px 12px;border-radius:var(--r);color:var(--text)" readonly></textarea>
     <div class="flex gap-2 mt-2.5 mb-3">
       <button class="btn btn-outline btn-sm flex-1" onclick="copiarActa()">📋 Copiar</button>
       <button class="btn btn-primary btn-sm flex-1" onclick="compartirActa()">📤 Compartir</button>
