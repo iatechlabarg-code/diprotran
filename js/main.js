@@ -405,13 +405,65 @@ function aplicarRestriccionesRol() {
   // Indicador visual de usuario y rol en la barra superior
   const userBadge = document.getElementById("userBadge");
   if (userBadge) {
-    const loginUser = currentUserEmail ? currentUserEmail.split("@")[0].toUpperCase() : "";
-    // Buscar nombre completo en PERSONAL_BASE por apellido (el usuario de login es el apellido)
+    const loginUser = currentUserEmail ? currentUserEmail.split("@")[0] : "";
+    // Normalizar: quitar tildes, mayúsculas, sin espacios
+    const _norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, "");
+    const loginNorm = _norm(loginUser);
+
+    // Buscar en PERSONAL_BASE: el login puede ser nombre+apellido, apellido+nombre, o solo apellido(s)
     const efMatch = (typeof PERSONAL_BASE !== "undefined") &&
-      PERSONAL_BASE.find(p => p.nombre && p.nombre.toUpperCase().startsWith(loginUser));
-    const nombreCompleto = efMatch ? efMatch.nombre.toUpperCase() : loginUser;
-    const rolLabel = esJefe ? "Jefe" : "Oficial";
-    userBadge.textContent = nombreCompleto ? `${nombreCompleto} · ${rolLabel}` : rolLabel;
+      PERSONAL_BASE.find(p => {
+        if (!p.nombre) return false;
+        const partes = p.nombre.trim().split(/\s+/);
+        const pn = partes.map(x => _norm(x));
+        // Match completo sin espacios
+        if (pn.join("") === loginNorm) return true;
+        // Match solo primeras N partes (apellido)
+        for (let i = 1; i < partes.length; i++) {
+          if (pn.slice(0, i).join("") === loginNorm) return true;
+        }
+        // Match cualquier par de partes en cualquier orden
+        for (let i = 0; i < pn.length; i++) {
+          for (let j = 0; j < pn.length; j++) {
+            if (i !== j && pn[i] + pn[j] === loginNorm) return true;
+          }
+        }
+        return false;
+      });
+
+    if (efMatch) {
+      // Extraer apellido: preferir el corte más largo que matchee
+      const partes = efMatch.nombre.trim().split(/\s+/);
+      const pn = partes.map(x => _norm(x));
+      let apellido = partes[0].toUpperCase();
+      // Prioridad 1: apellido solo = loginNorm (preferir corte más largo)
+      let found = false;
+      for (let i = partes.length - 1; i >= 1; i--) {
+        if (pn.slice(0, i).join("") === loginNorm) {
+          apellido = partes.slice(0, i).join(" ").toUpperCase();
+          found = true;
+          break;
+        }
+      }
+      // Prioridad 2: nombre + apellido en algún orden (preferir apellido más largo)
+      if (!found) {
+        for (let i = partes.length - 1; i >= 1; i--) {
+          const apNorm = pn.slice(0, i).join("");
+          for (const n of pn.slice(i)) {
+            if (n + apNorm === loginNorm || apNorm + n === loginNorm) {
+              apellido = partes.slice(0, i).join(" ").toUpperCase();
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+      }
+      const jerarquia = (efMatch.jerarquia || "").toUpperCase();
+      userBadge.textContent = `${jerarquia} ${apellido}`;
+    } else {
+      userBadge.textContent = loginUser.toUpperCase() || (esJefe ? "Jefe" : "Oficial");
+    }
     userBadge.classList.remove("hidden");
     userBadge.style.background = esJefe ? "var(--ba-teal4)" : "var(--blue5)";
     userBadge.style.color = esJefe ? "var(--blue1)" : "var(--blue2)";
@@ -1022,6 +1074,10 @@ async function initApp() {
 }
 
 window.addEventListener("load", async () => {
+  // Limpiar error de login residual (navegadores preservan inline styles entre recargas)
+  const _errLogin = document.getElementById("loginError");
+  if (_errLogin) _errLogin.style.display = "none";
+
   initSupabase();
   // Guard: si el SDK no cargó, supaClient es null y llamar .auth crashea silenciosamente
   if (!supaClient) {
@@ -1073,6 +1129,9 @@ window.addEventListener("load", async () => {
       currentUserEmail = "";
       appInited = false;
       document.getElementById("loginScreen").style.display = "";
+      // Limpiar error de login residual
+      const _errEl = document.getElementById("loginError");
+      if (_errEl) _errEl.style.display = "none";
     }
   });
 });
