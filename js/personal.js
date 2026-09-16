@@ -92,12 +92,61 @@ const AREAS = [
 // Filtra la lista de personal según el rol/área del usuario logueado.
 // jefe y rrhh ven todo; oficial_seccion solo ve su propia área;
 // cualquier otro rol (sin alcance definido) no ve personal.
-function personalVisibleParaUsuario(lista) {
+// Sobre ese alcance, jefe/rrhh además pueden acotar la vista a una sola área
+// desde el selector del header (areaFiltroSeleccionado) para no ver todo mezclado.
+let areaFiltroSeleccionado = "todas";
+
+// Alcance real de lectura/escritura por rol (esto es lo que también usa
+// sincronizarPersonal() en main.js para saber qué filas puede subir). NO debe
+// tener en cuenta el filtro visual del header: ese es solo para mostrar, y
+// aplicarlo acá haría que al sincronizar con un filtro puesto se dejen de
+// subir cambios de las demás áreas.
+function personalEnAlcanceDeRol(lista) {
   if (currentUserRol === "jefe" || currentUserRol === "rrhh") return lista;
   if (currentUserRol === "oficial_seccion") {
     return lista.filter(ef => ef.areaId && ef.areaId === currentUserArea);
   }
   return [];
+}
+
+// Lo que efectivamente se muestra en la pestaña Personal: el alcance de rol
+// de arriba, acotado además por el selector de área del header (solo UI).
+function personalVisibleParaUsuario(lista) {
+  const visibles = personalEnAlcanceDeRol(lista);
+  if (areaFiltroSeleccionado && areaFiltroSeleccionado !== "todas") {
+    return visibles.filter(ef => ef.areaId === areaFiltroSeleccionado);
+  }
+  return visibles;
+}
+
+// Arma el selector de área del header: para jefe/rrhh es un combo funcional
+// (Todas + cada área); para oficial_seccion queda fijo en la suya (no hay
+// nada para elegir, RLS ya lo limita a esa única área).
+function poblarSelectorAreaHeader() {
+  const sel = document.getElementById("areaFiltroHeader");
+  if (!sel) return;
+  if (currentUserRol === "jefe" || currentUserRol === "rrhh") {
+    sel.disabled = false;
+    sel.innerHTML = `<option value="todas">TODAS LAS ÁREAS</option>` +
+      AREAS.map(a => `<option value="${a.id}">${a.label.toUpperCase()}</option>`).join("");
+    sel.value = areaFiltroSeleccionado;
+  } else if (currentUserRol === "oficial_seccion") {
+    const area = AREAS.find(a => a.id === currentUserArea);
+    areaFiltroSeleccionado = currentUserArea;
+    sel.innerHTML = `<option value="${currentUserArea}">${(area?.label || "SIN ÁREA ASIGNADA").toUpperCase()}</option>`;
+    sel.value = currentUserArea;
+    sel.disabled = true;
+  } else {
+    areaFiltroSeleccionado = "todas";
+    sel.innerHTML = `<option value="todas">—</option>`;
+    sel.disabled = true;
+  }
+}
+
+function onCambioAreaHeader(value) {
+  areaFiltroSeleccionado = value;
+  renderPersonal(document.getElementById("searchPersonal")?.value || "");
+  if (document.getElementById("calendarioWrap")?.style.display !== "none") renderCalendario();
 }
 
 let editandoEfId = null; // null = nuevo, string = editando existente
@@ -178,7 +227,13 @@ function buildNuevoEfForm(datos) {
         <label class="lbl">Área / Sección</label>
         <select id="nef_area" ${currentUserRol === "oficial_seccion" ? "disabled" : ""}>
           <option value="">— Sin asignar —</option>
-          ${AREAS.map(a => `<option value="${a.id}" ${(d.areaId||(currentUserRol==="oficial_seccion"?currentUserArea:""))===a.id?"selected":""}>${a.label}</option>`).join("")}
+          ${AREAS.map(a => {
+            // Al editar: su área actual. Al agregar: la que tenga puesta el
+            // filtro del header (si hay una elegida), si no, sin asignar.
+            const defaultArea = currentUserRol === "oficial_seccion" ? currentUserArea
+              : (areaFiltroSeleccionado !== "todas" ? areaFiltroSeleccionado : "");
+            return `<option value="${a.id}" ${(d.areaId||defaultArea)===a.id?"selected":""}>${a.label}</option>`;
+          }).join("")}
         </select>
         ${currentUserRol === "oficial_seccion" ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">Solo podés cargar personal de tu propia área.</div>` : ""}
       </div>

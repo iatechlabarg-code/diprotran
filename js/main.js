@@ -195,8 +195,10 @@ async function sincronizarPersonal() {
     // Solo se sincronizan las filas que el usuario puede escribir: jefe/rrhh
     // mandan todo el plantel, oficial_seccion únicamente su propia área (si se
     // mandaran filas fuera de alcance, Supabase rechazaría el upsert completo
-    // por RLS al ser una sola sentencia con múltiples filas).
-    const rows = personalVisibleParaUsuario(todos).map(ef => ({
+    // por RLS al ser una sola sentencia con múltiples filas). Se usa el
+    // alcance de ROL, no personalVisibleParaUsuario, para no depender del
+    // filtro visual del selector de área del header.
+    const rows = personalEnAlcanceDeRol(todos).map(ef => ({
       id:               ef.id,
       nombre:           ef.nombre,
       jerarquia:        ef.jerarquia,
@@ -415,6 +417,9 @@ function aplicarRestriccionesRol() {
   // Nav Admin (tab 6): solo visible para jefes
   const nav6 = document.getElementById("nav6");
   if (nav6) nav6.style.display = esJefe ? "" : "none";
+
+  // Selector de área del header (pestaña Personal)
+  if (typeof poblarSelectorAreaHeader === "function") poblarSelectorAreaHeader();
 
   // Indicador visual de usuario y rol en la barra superior
   const userBadge = document.getElementById("userBadge");
@@ -1161,6 +1166,7 @@ window.addEventListener("load", async () => {
       currentUserRol   = "oficial";
       currentUserArea  = "";
       currentUserEmail = "";
+      if (typeof areaFiltroSeleccionado !== "undefined") areaFiltroSeleccionado = "todas";
       appInited = false;
       document.getElementById("loginScreen").style.display = "";
       // Limpiar error de login residual
