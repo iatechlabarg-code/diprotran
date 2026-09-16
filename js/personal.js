@@ -56,8 +56,16 @@ const JERARQUIAS_LIST = [
 // Profesional). Lo que no matchee ninguno (p.ej. Comunicaciones) va al final.
 const ORDEN_ESCALAFON = ["CDO.", "E.G.", "S.G.", "ADM.", "TEC.", "PROF."];
 
+// Las funciones de guardia (oficial de servicio, ayudante, encargado de
+// tercio) tienen jerarquía extraordinaria: van siempre primero y en ese
+// orden puntual, sin importar el rango real del efectivo.
+const ORDEN_FUNCION_GUARDIA = { of_servicio: 0, ayudante: 1, enc_tercio: 2 };
+
 function ordenarPersonalJerarquico(lista) {
   return lista.slice().sort((a, b) => {
+    const fa = ORDEN_FUNCION_GUARDIA[getFuncionEfectiva(a)] ?? 99;
+    const fb = ORDEN_FUNCION_GUARDIA[getFuncionEfectiva(b)] ?? 99;
+    if (fa !== fb) return fa - fb;
     const ea = ORDEN_ESCALAFON.indexOf(a.escalafon);
     const eb = ORDEN_ESCALAFON.indexOf(b.escalafon);
     const oa = ea === -1 ? ORDEN_ESCALAFON.length : ea;
