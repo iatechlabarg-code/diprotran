@@ -14,8 +14,8 @@ const dbgW = (...a) => { if (DEBUG) console.warn(...a); };
 // Row Level Security (RLS) en las tablas de Supabase. Esta key NO debe
 // reemplazarse por la "service_role key", que sí tiene acceso sin restricciones.
 // Referencia: https://supabase.com/docs/guides/api/api-keys
-const SUPA_URL = "https://abmxokahzbxklwyzaiyr.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFibXhva2FoemJ4a2x3eXphaXlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NDczMTQsImV4cCI6MjA5NjAyMzMxNH0.o4qEy0i02dS8P1mTW1Oa8V3JgBnmg9o5vL4E0X-jfK0";
+const SUPA_URL = "http://100.101.41.93:8000";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTQ1NDQ3LCJleHAiOjE5NDU4MjU0NDd9.0UiEJw9kezZcd3H1GiNIJh_tZ5MUB_0Xjkq98nsG3dc";
 let supaClient = null;
 
 // ════════════════════════════════════════════
@@ -192,7 +192,11 @@ async function sincronizarPersonal() {
         ef.subescalafon = "Servicios Generales";
       }
     });
-    const rows = todos.map(ef => ({
+    // Solo se sincronizan las filas que el usuario puede escribir: jefe/rrhh
+    // mandan todo el plantel, oficial_seccion únicamente su propia área (si se
+    // mandaran filas fuera de alcance, Supabase rechazaría el upsert completo
+    // por RLS al ser una sola sentencia con múltiples filas).
+    const rows = personalVisibleParaUsuario(todos).map(ef => ({
       id:               ef.id,
       nombre:           ef.nombre,
       jerarquia:        ef.jerarquia,
@@ -212,9 +216,13 @@ async function sincronizarPersonal() {
       chaleco:          ef.chaleco,
       cria_jurisd:      ef.criaJurisd,
       grupo_sanguineo:  ef.grupoSanguineo,
+      area_id:          ef.areaId || null,
       factor_rh:        ef.factorRh || "—",
       situacion_revista:ef.situacionRevista,
       vac_hasta:        ef.vacHasta || "",
+      vac_desde:        ef.vacDesde || null,
+      vac_dias_usados:  ef.vacDiasUsados || 0,
+      vac_anio:         ef.vacAnio || null,
       nota:             ef.nota || "",
       funcion_base:     ef.funcion_base,
       funcion_fija:     ef.funcion_fija || false,
@@ -274,8 +282,9 @@ async function cargarPersonalDesdeNube() {
         cel: row.cel, email: row.email, licHab: row.lic_hab,
         armamento: row.armamento, chaleco: row.chaleco,
         criaJurisd: row.cria_jurisd, grupoSanguineo: row.grupo_sanguineo,
-        factorRh: row.factor_rh,
+        factorRh: row.factor_rh, areaId: row.area_id || "",
         situacionRevista: row.situacion_revista, vacHasta: row.vac_hasta,
+        vacDesde: row.vac_desde, vacDiasUsados: row.vac_dias_usados || 0, vacAnio: row.vac_anio,
         nota: row.nota, funcion_base: row.funcion_base,
         funcion_fija: row.funcion_fija, domicilio: row.calle,
         activo: row.activo !== false,
@@ -364,6 +373,11 @@ async function cargarUltimoInforme() {
 
 function cargarDesdeNube(inf) {
   state.fecha      = inf.fecha      || state.fecha;
+  // Si la fecha cargada no es la de hoy, este turno se está armando a partir
+  // de una guardia anterior (para ahorrar tiempo si no hubo cambios). Guardar
+  // la fecha original para preguntar al generar el PDF con qué fecha emitirlo.
+  const _hoyCarga = new Date().toISOString().split("T")[0];
+  state.fechaCargadaHistorial = (inf.fecha && inf.fecha !== _hoyCarga) ? inf.fecha : null;
   state.oficial    = inf.oficial    || state.oficial;
   state.ayudante   = inf.ayudante   || state.ayudante;
   state.vehicles   = inf.vehicles   || {};
@@ -462,7 +476,11 @@ function aplicarRestriccionesRol() {
       const jerarquia = (efMatch.jerarquia || "").toUpperCase();
       userBadge.textContent = `${jerarquia} ${apellido}`;
     } else {
-      userBadge.textContent = loginUser.toUpperCase() || (esJefe ? "Jefe" : "Oficial");
+      const rolLabel = esJefe ? "Jefe"
+        : currentUserRol === "rrhh" ? "RRHH"
+        : currentUserRol === "oficial_seccion" ? "Of. Sección"
+        : "Oficial";
+      userBadge.textContent = loginUser.toUpperCase() || rolLabel;
     }
     userBadge.classList.remove("hidden");
     userBadge.style.background = esJefe ? "var(--ba-teal4)" : "var(--blue5)";
@@ -699,6 +717,19 @@ const LICENCIA_ESCALA = [
 function calcularDiasLicencia(antiguedad) {
   const escala = LICENCIA_ESCALA.find(e => antiguedad >= e.desde && antiguedad <= e.hasta);
   return escala ? escala.dias : 0;
+}
+
+// Año policial: 1° de noviembre al 31 de octubre (Decreto 1050/09)
+function anioPolicialDe(fecha) {
+  const d = fecha ? new Date(fecha) : new Date();
+  return d.getMonth() >= 10 ? d.getFullYear() : d.getFullYear() - 1;
+}
+
+function diasLicenciaRestantes(ef, antig) {
+  const total = calcularDiasLicencia(antig);
+  const anioActual = anioPolicialDe();
+  const usados = (ef.vacAnio === anioActual) ? (ef.vacDiasUsados || 0) : 0;
+  return Math.max(0, total - usados);
 }
 
 function calcularAntiguedad(fechaIngreso) {
@@ -1094,6 +1125,7 @@ window.addEventListener("load", async () => {
     if (session) {
       currentUserEmail = session.user.email || "";
       currentUserRol   = session.user.user_metadata?.rol || "oficial";
+      currentUserArea  = session.user.user_metadata?.area || "";
       aplicarRestriccionesRol();
       document.getElementById("loginScreen").style.display = "none";
       if (!appInited) {
@@ -1112,9 +1144,10 @@ window.addEventListener("load", async () => {
   supaClient.auth.onAuthStateChange(async (event, session) => {
     if (event === "INITIAL_SESSION") return; // ya manejado por getSession
     if (session) {
-      // Leer rol y email del usuario autenticado
+      // Leer rol, área y email del usuario autenticado
       currentUserEmail = session.user.email || "";
       currentUserRol   = session.user.user_metadata?.rol || "oficial";
+      currentUserArea  = session.user.user_metadata?.area || "";
       aplicarRestriccionesRol();
 
       // Usuario autenticado: ocultar login y lanzar la app (solo una vez)
@@ -1126,6 +1159,7 @@ window.addEventListener("load", async () => {
     } else {
       // Sin sesión: mostrar login, resetear flag
       currentUserRol   = "oficial";
+      currentUserArea  = "";
       currentUserEmail = "";
       appInited = false;
       document.getElementById("loginScreen").style.display = "";

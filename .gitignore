@@ -4,3 +4,7 @@ package-lock.json
 tailwind.config.js
 tailwind-input.css
 *.bak
+
+# Dumps de la base (contienen hashes de contraseñas y datos personales del
+# personal: domicilios, teléfonos, emails). Nunca deben ir al repo remoto.
+db/

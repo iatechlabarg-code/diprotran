@@ -50,6 +50,56 @@ const JERARQUIAS_LIST = [
   { abrev:"OFL",        label:"Oficial",               esc:"E.G.", categoria:"Oficial Subalterno" },
 ];
 
+// Orden jerárquico de subescalafones para la pestaña Personal (Ley 13982,
+// Art. 27 y 29, y Decreto 1050/09): Comando primero, luego General, Servicios
+// Generales y por último el personal no policial (Administrativo, Técnico,
+// Profesional). Lo que no matchee ninguno (p.ej. Comunicaciones) va al final.
+const ORDEN_ESCALAFON = ["CDO.", "E.G.", "S.G.", "ADM.", "TEC.", "PROF."];
+
+function ordenarPersonalJerarquico(lista) {
+  return lista.slice().sort((a, b) => {
+    const ea = ORDEN_ESCALAFON.indexOf(a.escalafon);
+    const eb = ORDEN_ESCALAFON.indexOf(b.escalafon);
+    const oa = ea === -1 ? ORDEN_ESCALAFON.length : ea;
+    const ob = eb === -1 ? ORDEN_ESCALAFON.length : eb;
+    if (oa !== ob) return oa - ob;
+    // Dentro del mismo subescalafón, por rango de jerarquía (Ley 13982, Art. 29)
+    const ja = JERARQUIAS_LIST.findIndex(j => j.abrev === a.jerarquia);
+    const jb = JERARQUIAS_LIST.findIndex(j => j.abrev === b.jerarquia);
+    const ra = ja === -1 ? 999 : ja;
+    const rb = jb === -1 ? 999 : jb;
+    if (ra !== rb) return ra - rb;
+    // Empate: por legajo
+    const la = parseInt((a.legajo||"").replace(/[^0-9]/g,"")) || 999999;
+    const lb = parseInt((b.legajo||"").replace(/[^0-9]/g,"")) || 999999;
+    return la - lb;
+  });
+}
+
+// Áreas de personal (independientes de las `secciones` del parque de vehículos).
+// Deben coincidir con los ids de la tabla public.areas en Supabase.
+const AREAS = [
+  { id:"sec1",          label:"1ª Sección" },
+  { id:"sec2",          label:"2ª Sección" },
+  { id:"sec3",          label:"3ª Sección" },
+  { id:"mecanicos",     label:"Mecánicos" },
+  { id:"mantenimiento", label:"Mantenimiento" },
+  { id:"logistica",     label:"Logística" },
+  { id:"personal",      label:"Personal (RRHH)" },
+  { id:"jefes",         label:"Jefes" },
+];
+
+// Filtra la lista de personal según el rol/área del usuario logueado.
+// jefe y rrhh ven todo; oficial_seccion solo ve su propia área;
+// cualquier otro rol (sin alcance definido) no ve personal.
+function personalVisibleParaUsuario(lista) {
+  if (currentUserRol === "jefe" || currentUserRol === "rrhh") return lista;
+  if (currentUserRol === "oficial_seccion") {
+    return lista.filter(ef => ef.areaId && ef.areaId === currentUserArea);
+  }
+  return [];
+}
+
 let editandoEfId = null; // null = nuevo, string = editando existente
 
 function onEscalafonChange(sel) {
@@ -122,6 +172,15 @@ function buildNuevoEfForm(datos) {
       <div>
         <label class="lbl">Destino</label>
         <input type="text" id="nef_destino" placeholder="Direc. Transp." value="${d.destino||"Direc. Transp."}">
+      </div>
+
+      <div style="grid-column:1/-1">
+        <label class="lbl">Área / Sección</label>
+        <select id="nef_area" ${currentUserRol === "oficial_seccion" ? "disabled" : ""}>
+          <option value="">— Sin asignar —</option>
+          ${AREAS.map(a => `<option value="${a.id}" ${(d.areaId||(currentUserRol==="oficial_seccion"?currentUserArea:""))===a.id?"selected":""}>${a.label}</option>`).join("")}
+        </select>
+        ${currentUserRol === "oficial_seccion" ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">Solo podés cargar personal de tu propia área.</div>` : ""}
       </div>
 
       <div style="grid-column:1/-1">
@@ -238,9 +297,11 @@ function openEditarEfModal(efId) {
   editandoEfId = efId;
   document.getElementById("nuevoEfTitle").textContent = "✏️ Editar Efectivo";
   document.getElementById("nuevoEfSaveBtn").textContent = "Guardar cambios ✓";
-  // Mostrar botón eliminar solo para extras (no para la lista base)
+  // Mostrar botón eliminar/dar de baja: siempre para extras, y para jefe/rrhh
+  // también en la lista base (RRHH necesita poder dar de baja a cualquiera).
   const esExtra = !!(state.personalExtra||[]).find(p=>p.id===efId);
-  document.getElementById("eliminarEfBtn").style.display = esExtra ? "block" : "none";
+  const puedeBajaBase = currentUserRol === "jefe" || currentUserRol === "rrhh";
+  document.getElementById("eliminarEfBtn").style.display = (esExtra || puedeBajaBase) ? "block" : "none";
   document.getElementById("nuevoEfBody").innerHTML = buildNuevoEfForm(ef);
   document.getElementById("nuevoEfModal").classList.add("open");
 }
@@ -265,6 +326,11 @@ function saveNuevoEfectivo() {
     jerarquia,
     escalafon:    document.getElementById("nef_escalafon")?.value || "",
     legajo,
+    // oficial_seccion solo puede cargar/editar dentro de su propia área,
+    // más allá de lo que diga el <select> (que además queda deshabilitado en el form).
+    areaId: currentUserRol === "oficial_seccion"
+      ? currentUserArea
+      : (document.getElementById("nef_area")?.value || ""),
     destino:          document.getElementById("nef_destino")?.value.trim()          || "Direc. Transp.",
     calle:            document.getElementById("nef_calle")?.value.trim()            || "—",
     localidad:        document.getElementById("nef_localidad")?.value.trim()        || "—",
@@ -375,7 +441,7 @@ function verEfectivosContados(tipo) {
     return !LICVAC_SET.has(f) && !RMH_SET.has(f); // guardia: operativos + franco
   };
 
-  const items = ordenarPersonal(PERSONAL_BASE.filter(enCategoria));
+  const items = ordenarPersonal(personalVisibleParaUsuario(PERSONAL_BASE).filter(enCategoria));
   list.innerHTML = items.map(ef => {
     const func      = getFuncionEfectiva(ef);
     const funcLabel = FUNCIONES.find(f=>f.id===func)?.label || func;
@@ -398,7 +464,7 @@ function getPersonalStats() {
   const stats = { guardia:0, franco:0, servicio:0, otros:0 };
   const OPERATIVO_SET = new Set(["of_servicio","ayudante","enc_tercio","chofer"]);
   const OTROS_SET     = new Set(["vacaciones","licencia","lic_especial","baja_med","desafect","inactividad","act_limit"]);
-  PERSONAL_BASE.forEach(ef => {
+  personalVisibleParaUsuario(PERSONAL_BASE).forEach(ef => {
     const f = getFuncionEfectiva(ef);
     if      (OPERATIVO_SET.has(f)) stats.guardia++;  // Roles operativos activos
     else if (f === "franco")       stats.franco++;   // Franco de servicio
@@ -454,7 +520,7 @@ function renderCalendario() {
 
   // Construir mapa de vacaciones: "YYYY-MM-DD" → [efId, ...]
   const vacMap = {};
-  PERSONAL_BASE.forEach(ef => {
+  personalVisibleParaUsuario(PERSONAL_BASE).forEach(ef => {
     const d     = state.personal[ef.id] || {};
     const hasta = d.vacHasta || ef.vacHasta || "";
     if (!hasta) return;
@@ -525,7 +591,7 @@ function renderCalendario() {
   html += `</div>`; // fin cal-grid
 
   // Leyenda: todos los que tienen vacaciones en algún momento (no solo este mes)
-  const conVac = PERSONAL_BASE.filter(ef => {
+  const conVac = personalVisibleParaUsuario(PERSONAL_BASE).filter(ef => {
     const d     = state.personal[ef.id] || {};
     const hasta = d.vacHasta || ef.vacHasta || "";
     return hasta >= hoyStr;
@@ -575,8 +641,9 @@ function renderPersonal(filtro) {
   const stats = { guardia:0, licvac:0, rmh:0 };
   const LICVAC_SET = new Set(["vacaciones","licencia","lic_especial"]);
   const RMH_SET    = new Set(["baja_med","desafect","inactividad","act_limit"]);
+  const visibles = personalVisibleParaUsuario(PERSONAL_BASE);
 
-  PERSONAL_BASE.forEach(ef => {
+  visibles.forEach(ef => {
     const f = getFuncionEfectiva(ef);
     if      (LICVAC_SET.has(f)) stats.licvac++;
     else if (RMH_SET.has(f))    stats.rmh++;
@@ -587,8 +654,8 @@ function renderPersonal(filtro) {
   document.getElementById("p-franco-n").textContent  = stats.licvac;
   document.getElementById("p-otros-n").textContent   = stats.rmh;
 
-  const filtered = ordenarPersonal(
-    PERSONAL_BASE.filter(ef =>
+  const filtered = ordenarPersonalJerarquico(
+    visibles.filter(ef =>
       !q ||
       ef.nombre.toLowerCase().includes(q) ||
       ef.jerarquia.toLowerCase().includes(q) ||
@@ -607,6 +674,7 @@ function renderPersonal(filtro) {
     // Calcular antigüedad y días de licencia (Decreto 1050/09 Art. 43)
     const antig    = calcularAntiguedad(ef.fechaIngreso);
     const diasLic  = ef.fechaIngreso && ef.fechaIngreso!=="—" ? calcularDiasLicencia(antig) : null;
+    const diasRest = diasLic!=null ? diasLicenciaRestantes(ef, antig) : null;
     const sitRev   = ef.situacionRevista ? ef.situacionRevista.replace(/_/g," ") : "—";
 
     const perfilItems = [
@@ -619,6 +687,7 @@ function renderPersonal(filtro) {
       diasLic ? `<div class="perfil-item full" style="background:var(--ok-bg);border-color:var(--ok)">
         <div class="perfil-lbl">Antigüedad · Licencia anual (Decreto 1050/09, Art. 43)</div>
         <div class="perfil-val">${antig} año${antig!==1?"s":""} de servicio → <b>${diasLic} días corridos</b> de licencia ordinaria</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Disponibles año policial en curso: <b>${diasRest}</b> de ${diasLic} días</div>
       </div>` : "",
       // ── Datos personales ──────────────────────────────────────
       (ef.calle && ef.calle!=="—") || (ef.domicilio && ef.domicilio!=="—") ? `<div class="perfil-item full"><div class="perfil-lbl">Calle y Número</div><div class="perfil-val">${escapeHTML(ef.calle||ef.domicilio)||"—"}</div></div>` : "",
@@ -794,21 +863,34 @@ function saveEfectivo() {
   // lo pierde porque state.personal empieza vacío cada día.
   if (vacHasta) {
     ef.vacHasta = vacHasta;  // actualizar el perfil en memoria
+    if (!ef.vacDesde) ef.vacDesde = state.fecha || new Date().toISOString().split("T")[0];
     if (!state.vacaciones) state.vacaciones = {};
     state.vacaciones[currentEfId] = {
       desde: state.fecha || new Date().toISOString().split("T")[0],
       hasta: vacHasta
     };
     renderCalendario();
-    sincronizarPersonal();   // persistir vac_hasta en Supabase
+    sincronizarPersonal();   // persistir vac_hasta y vac_desde en Supabase
   } else if (ef.vacHasta) {
-    // Si se cambió la función a algo distinto de vacaciones, limpiar la fecha
+    // Se cambió la función a algo distinto de vacaciones → cancelar vacaciones
+    // de forma permanente y recalcular días usados/disponibles.
     const hoy = new Date().toISOString().split("T")[0];
-    if (ef.vacHasta < hoy) {
-      ef.vacHasta = "";      // ya venció — limpiar el perfil
-      if (state.vacaciones) delete state.vacaciones[currentEfId]; // quitar de dpt_vac
-      sincronizarPersonal();
+    const anioActual = anioPolicialDe();
+    if (ef.vacDesde) {
+      const desde = new Date(ef.vacDesde);
+      const hasta = new Date(ef.vacHasta);
+      const ayer  = new Date(hoy);
+      ayer.setDate(ayer.getDate() - 1);
+      const finEfectivo = ayer < hasta ? ayer : hasta; // no contar más de lo programado
+      const diasUsadosAhora = Math.max(0, Math.floor((finEfectivo - desde) / 86400000) + 1);
+      const acumPrevio = (ef.vacAnio === anioActual) ? (ef.vacDiasUsados || 0) : 0;
+      ef.vacDiasUsados = acumPrevio + diasUsadosAhora;
+      ef.vacAnio = anioActual;
     }
+    ef.vacHasta = "";
+    ef.vacDesde = "";
+    if (state.vacaciones) delete state.vacaciones[currentEfId]; // quitar de dpt_vac
+    sincronizarPersonal();
   }
 
   // ── Sincronizar función con encabezado del informe ──────────────────────────

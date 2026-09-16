@@ -90,6 +90,53 @@ function fillPreview() {
 // ════════════════════════════════════════════
 
 function generatePDF(){
+  // ── Si el turno actual se armó cargando una guardia anterior (para ahorrar
+  // tiempo cuando no hubo cambios), preguntar con qué fecha emitir el PDF:
+  // la fecha original (para comparar contra la guardia anterior) o la fecha
+  // de hoy (es la guardia nueva, mismos datos sin cambios). ─────────────────
+  if (state.fechaCargadaHistorial) {
+    abrirModalFechaPDF();
+    return;
+  }
+  _buildPDF();
+}
+
+function abrirModalFechaPDF(){
+  const orig = state.fechaCargadaHistorial;
+  const [oy,om,od] = orig.split("-");
+  const hoy = new Date().toISOString().split("T")[0];
+  const [hy,hm,hd] = hoy.split("-");
+  const lblOrig = document.getElementById("fechaPdfOrigLabel");
+  const lblHoy  = document.getElementById("fechaPdfHoyLabel");
+  if (lblOrig) lblOrig.textContent = `${od}/${om}/${oy}`;
+  if (lblHoy)  lblHoy.textContent  = `${hd}/${hm}/${hy}`;
+  document.getElementById("fechaPdfModal").classList.add("open");
+}
+
+function cerrarModalFechaPDF(){
+  document.getElementById("fechaPdfModal").classList.remove("open");
+}
+
+function generarPDFConFechaOriginal(){
+  cerrarModalFechaPDF();
+  state.fechaCargadaHistorial = null;
+  saveStorage();
+  _buildPDF();
+}
+
+function generarPDFConFechaHoy(){
+  cerrarModalFechaPDF();
+  const hoy = new Date().toISOString().split("T")[0];
+  state.fecha = hoy;
+  state.fechaCargadaHistorial = null;
+  const inpF = document.getElementById("inpFecha");
+  if (inpF) inpF.value = hoy;
+  saveStorage();
+  if (typeof renderGuardiaBanner === "function") renderGuardiaBanner();
+  _buildPDF();
+}
+
+function _buildPDF(){
   // ── Responsables obligatorios para el informe ────────────────────────────
   if (!validateResponsables()) return;
 

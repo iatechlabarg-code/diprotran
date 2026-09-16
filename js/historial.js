@@ -30,13 +30,16 @@ async function cargarInformeHistorial(id) {
 //    guardia@diprotran.internal  / villalba@diprotran.internal / cabral@diprotran.internal
 // ════════════════════════════════════════════
 let appInited        = false;
-let currentUserRol   = "oficial";   // "oficial" | "jefe"
+let currentUserRol   = "oficial";   // "oficial" | "jefe" | "rrhh" | "oficial_seccion"
 let currentUserEmail = "";
+let currentUserArea  = "";          // area_id (solo aplica a "oficial_seccion")
 
 // ── Control de acceso por rol ─────────────────────────────────
 // Roles disponibles en user_metadata de Supabase Auth:
-//   "jefe"    → acceso completo (Admin, Historial, todo)
-//   "oficial" → sin tab Admin (default si no se configura)
+//   "jefe"            → acceso completo (Admin, Historial, todo)
+//   "rrhh"            → ve y edita TODO el personal (todas las áreas), sin tab Admin
+//   "oficial_seccion" → ve y edita solo el personal de su área (currentUserArea)
+//   "oficial"         → sin tab Admin ni personal (default si no se configura ningún rol)
 
 
 // ════════════════════════════════════════════
